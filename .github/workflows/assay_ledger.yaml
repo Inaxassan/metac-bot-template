@@ -1,0 +1,34 @@
+name: Assay ledger
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "12,32,52 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: assay-ledger
+  cancel-in-progress: false
+
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Pull forecasts and resolutions
+        env:
+          METACULUS_TOKEN: ${{ secrets.METACULUS_TOKEN }}
+        run: |
+          pip install requests --quiet
+          python assay_pull.py
+      - name: Commit ledger if changed
+        run: |
+          git config user.name "assay-ledger[bot]"
+          git config user.email "actions@github.com"
+          git pull --rebase --autostash
+          git add assay/ledger.json
+          git diff --cached --quiet && echo "no change" || (git commit -m "assay ledger update" && git push)
