@@ -713,6 +713,8 @@ if __name__ == "__main__":
         use_research_summary_to_forecast=False,
         publish_reports_to_metaculus=publish_to_metaculus,
         folder_to_save_reports_to=None,
+                skip_previously_forecasted_questions=True,
+
                 llms={
             "default": GeneralLlm(
                 model="openrouter/google/gemini-2.5-flash",
@@ -743,7 +745,7 @@ if __name__ == "__main__":
     if run_mode == "tournament":
         seasonal_tournament_reports = asyncio.run(
             template_bot.forecast_on_tournament(
-                client.CURRENT_AI_COMPETITION_ID, return_exceptions=True
+                33121, return_exceptions=True
             )
         )
         minibench_reports = asyncio.run(
