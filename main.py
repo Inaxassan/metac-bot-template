@@ -124,7 +124,7 @@ class FallTemplateBot2026(ForecastBot):
         1  # Set this to whatever works for your search-provider/ai-model rate limits
     )
     _concurrency_limiter = asyncio.Semaphore(_max_concurrent_questions)
-    _structure_output_validation_samples = 2
+    _structure_output_validation_samples = 1
 
     ##################################### RESEARCH #####################################
 
@@ -720,9 +720,9 @@ if __name__ == "__main__":
                 timeout=120,
                 allowed_tries=2,
             ),
-            "summarizer": "openrouter/google/gemini-2.5-flash-lite",
+            "summarizer": "openrouter/google/gemini-2.5-flash",
             "researcher": "openrouter/google/gemini-2.5-flash",
-            "parser": "openrouter/google/gemini-2.5-flash-lite",
+            "parser": "openrouter/google/gemini-2.5-flash",
         },
 
     )
