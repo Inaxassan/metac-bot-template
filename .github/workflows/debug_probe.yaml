@@ -15,20 +15,17 @@ jobs:
           import os, requests
           H = {"Authorization": "Token " + os.environ["METACULUS_TOKEN"]}
           B = "https://www.metaculus.com/api"
-          def probe(name, params):
-              r = requests.get(B + "/posts/", params=params, headers=H, timeout=60)
-              try:
-                  results = r.json().get("results", [])
-                  titles = [p.get("title", "?")[:50] for p in results[:2]]
-                  print(name, "->", r.status_code, "count:", len(results), titles)
-              except Exception:
-                  print(name, "->", r.status_code, r.text[:150])
-          probe("A id33121+open  ", {"tournaments": ["33121"], "statuses": ["open"], "limit": 100})
-          probe("B id33121+any   ", {"tournaments": ["33121"], "limit": 100})
-          probe("C slug+open     ", {"tournaments": ["fall-futureeval-2026"], "statuses": ["open"], "limit": 100})
-          probe("D testarea+open ", {"tournaments": ["bot-testing-area"], "statuses": ["open"], "limit": 100})
-          probe("E minibench+any ", {"tournaments": ["minibench"], "limit": 100})
-          probe("F anyopen+limit5", {"statuses": ["open"], "limit": 5})
-          me = requests.get(B + "/users/me/", headers=H, timeout=60)
-          print("whoami ->", me.status_code, me.text[:200])
+          r = requests.get(B + "/posts/", params={"tournaments": ["33121"], "limit": 100}, headers=H, timeout=60)
+          posts = r.json().get("results", [])
+          print("total posts:", len(posts))
+          for p in posts:
+              kind = "question" if "question" in p else ("group" if "group_of_questions" in p else ("notebook" if "notebook" in p else "?"))
+              q = p.get("question") or {}
+              print("-", p.get("id"), "| post_status:", p.get("status"), "|", kind, "|", (p.get("title") or "?")[:45])
+              print("   q_status:", q.get("status"), "| open:", q.get("open_time"), "| close:", q.get("scheduled_close_time"), "| forecasters:", q.get("nr_forecasters"))
+              if kind == "group":
+                  subs = p["group_of_questions"].get("questions", [])
+                  print("   group with", len(subs), "subquestions")
+                  for sq in subs[:3]:
+                      print("   sub:", sq.get("id"), "|", sq.get("status"), "|", (sq.get("title") or "?")[:40], "| open:", sq.get("open_time"))
           PYEOF
