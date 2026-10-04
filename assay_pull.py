@@ -1,5 +1,5 @@
-"""Assay ledger puller: reads ASSAY-Bot's Metaculus forecasts and
-resolutions into assay/ledger.json. Runs in GitHub Actions.
+"""Assay ledger puller: reads ASSAY-Bot's Metaculus forecasts, community
+predictions, and resolutions into assay/ledger.json. Runs in GitHub Actions.
 Token never leaves GitHub secrets; output is public data."""
 
 import json
@@ -39,10 +39,17 @@ def norm_y(resolution, qtype):
         return None
 
 
+def community_p(q):
+    try:
+        return q["aggregations"]["recency_weighted"]["latest"]["centers"][0]
+    except Exception:
+        return None
+
+
 def question_record(q, post, tournament):
     latest = (q.get("my_forecasts") or {}).get("latest") or {}
     ftime = latest.get("start_time")
-    p = latest.get("probability_yes") if q.get("type") == "binary" else None
+    is_binary = q.get("type") == "binary"
     return {
         "question_id": q.get("id"),
         "post_id": post.get("id"),
@@ -54,11 +61,13 @@ def question_record(q, post, tournament):
         "scheduled_close_time": q.get("scheduled_close_time"),
         "scheduled_resolve_time": q.get("scheduled_resolve_time"),
         "producer": "gemini-2.5-flash via openrouter (metaculus template)",
-        "p": p,
+        "p": latest.get("probability_yes") if is_binary else None,
         "forecast_time": (
             datetime.fromtimestamp(ftime, timezone.utc).isoformat() if ftime else None
         ),
         "forecast_raw": latest or None,
+        "p_community": community_p(q) if is_binary else None,
+        "n_forecasters": q.get("nr_forecasters"),
         "resolution": q.get("resolution"),
         "y": norm_y(q.get("resolution"), q.get("type")),
         "actual_resolve_time": q.get("actual_resolve_time"),
@@ -93,7 +102,10 @@ json.dump(old, open(LEDGER, "w"), indent=2, sort_keys=True)
 
 npred = sum(1 for r in old.values() if r["p"] is not None)
 nres = sum(1 for r in old.values() if r["y"] is not None)
-print("ledger: %d questions | with forecast: %d | resolved: %d" % (len(old), npred, nres))
+ncp = sum(1 for r in old.values() if r["p_community"] is not None)
+print("ledger: %d questions | with forecast: %d | with community p: %d | resolved: %d"
+      % (len(old), npred, ncp, nres))
 for r in sorted(old.values(), key=lambda x: x["question_id"] or 0):
-    print("  q%s | %s | p=%s | y=%s | %s" % (
-        r["question_id"], r["status"], r["p"], r["y"], (r["title"] or "")[:50]))
+    print("  q%s | %s | p=%s | cp=%s | y=%s | %s" % (
+        r["question_id"], r["status"], r["p"], r["p_community"], r["y"],
+        (r["title"] or "")[:45]))
