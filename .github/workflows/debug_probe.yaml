@@ -1,0 +1,34 @@
+name: Debug API probe
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe Metaculus API
+        env:
+          METACULUS_TOKEN: ${{ secrets.METACULUS_TOKEN }}
+        run: |
+          pip install requests --quiet
+          python - <<'PYEOF'
+          import os, requests
+          H = {"Authorization": "Token " + os.environ["METACULUS_TOKEN"]}
+          B = "https://www.metaculus.com/api"
+          def probe(name, params):
+              r = requests.get(B + "/posts/", params=params, headers=H, timeout=60)
+              try:
+                  results = r.json().get("results", [])
+                  titles = [p.get("title", "?")[:50] for p in results[:2]]
+                  print(name, "->", r.status_code, "count:", len(results), titles)
+              except Exception:
+                  print(name, "->", r.status_code, r.text[:150])
+          probe("A id33121+open  ", {"tournaments": ["33121"], "statuses": ["open"], "limit": 100})
+          probe("B id33121+any   ", {"tournaments": ["33121"], "limit": 100})
+          probe("C slug+open     ", {"tournaments": ["fall-futureeval-2026"], "statuses": ["open"], "limit": 100})
+          probe("D testarea+open ", {"tournaments": ["bot-testing-area"], "statuses": ["open"], "limit": 100})
+          probe("E minibench+any ", {"tournaments": ["minibench"], "limit": 100})
+          probe("F anyopen+limit5", {"statuses": ["open"], "limit": 5})
+          me = requests.get(B + "/users/me/", headers=H, timeout=60)
+          print("whoami ->", me.status_code, me.text[:200])
+          PYEOF
