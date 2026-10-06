@@ -1,4 +1,4 @@
-"""Assay ledger puller v3: reads ASSAY-Bot's Metaculus forecasts, community
+"""Assay ledger puller v3.1: reads ASSAY-Bot's Metaculus forecasts, community
 predictions, and resolutions into assay/ledger.json. Runs in GitHub Actions.
 Token never leaves GitHub secrets; output is public data.
 
@@ -16,6 +16,9 @@ client (metaculus_client.py, Oct 2026):
 - Listing failures after retries still fail the run (dead-man semantics:
   a stale ledger is the visible signal). Per-post fallback failures skip.
 - Ledger write is atomic (tmp file + os.replace).
+- v3.1: p extracted from forecast_values=[p_no,p_yes] (current API shape;
+  legacy probability_yes kept as fallback); forecasters_count fallback for
+  n_forecasters; community_raw blob stored for shape discovery.
 """
 
 import json
@@ -45,7 +48,7 @@ MAX_FALLBACKS = 50      # per-post GETs allowed when listing lacks my_forecasts
 
 SESSION = requests.Session()
 SESSION.headers["Authorization"] = "Token " + TOKEN
-SESSION.headers["User-Agent"] = "assay-ledger/3.0 (github-actions)"
+SESSION.headers["User-Agent"] = "assay-ledger/3.1 (github-actions)"
 
 T0 = time.monotonic()
 PARTIAL = False
@@ -120,6 +123,19 @@ def norm_y(resolution, qtype):
         return None
 
 
+def my_p(latest, qtype):
+    """My probability_yes from a forecast object. Current API: binary forecasts
+    carry forecast_values=[p_no, p_yes]; legacy shape used probability_yes."""
+    if not latest or qtype != "binary":
+        return None
+    fv = latest.get("forecast_values")
+    if fv and len(fv) == 2:
+        return float(fv[1])
+    if latest.get("probability_yes") is not None:
+        return float(latest["probability_yes"])
+    return None
+
+
 def community_p(q):
     """Community center for binary questions; try every known API shape."""
     try:
@@ -138,6 +154,18 @@ def community_p(q):
     return None
 
 
+def community_raw(q):
+    """Compact copy of the community aggregation blob, kept for shape
+    discovery — the API has renamed fields on us before."""
+    agg = q.get("aggregations") or {}
+    out = {}
+    for method in ("recency_weighted", "unweighted"):
+        latest = (agg.get(method) or {}).get("latest")
+        if latest:
+            out[method] = latest
+    return out or None
+
+
 def question_record(q, post, tournament):
     latest = (q.get("my_forecasts") or {}).get("latest") or {}
     ftime = latest.get("start_time")
@@ -153,13 +181,14 @@ def question_record(q, post, tournament):
         "scheduled_close_time": q.get("scheduled_close_time"),
         "scheduled_resolve_time": q.get("scheduled_resolve_time"),
         "producer": "gemini-2.5-flash via openrouter (metaculus template)",
-        "p": latest.get("probability_yes") if is_binary else None,
+        "p": my_p(latest, q.get("type")),
         "forecast_time": (
             datetime.fromtimestamp(ftime, timezone.utc).isoformat() if ftime else None
         ),
         "forecast_raw": latest or None,
         "p_community": community_p(q) if is_binary else None,
-        "n_forecasters": q.get("nr_forecasters"),
+        "community_raw": community_raw(q),
+        "n_forecasters": q.get("nr_forecasters") or q.get("forecasters_count"),
         "resolution": q.get("resolution"),
         "y": norm_y(q.get("resolution"), q.get("type")),
         "actual_resolve_time": q.get("actual_resolve_time"),
