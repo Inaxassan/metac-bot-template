@@ -1,10 +1,11 @@
 {
   "45707": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-04T21:24:31.196354+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547799+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670800+00:00",
     "n_forecasters": null,
     "open_time": "2026-09-06T06:00:00Z",
     "p": null,
@@ -23,10 +24,11 @@
   },
   "46019": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-04T21:24:31.196351+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547796+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670797+00:00",
     "n_forecasters": null,
     "open_time": "2026-09-29T14:00:00Z",
     "p": null,
@@ -45,10 +47,11 @@
   },
   "46020": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-04T21:24:31.196348+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547792+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670793+00:00",
     "n_forecasters": null,
     "open_time": "2026-09-30T14:00:00Z",
     "p": null,
@@ -67,10 +70,11 @@
   },
   "46021": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-04T21:24:31.196345+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547788+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670789+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-01T14:00:00Z",
     "p": null,
@@ -89,10 +93,11 @@
   },
   "46022": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-04T21:24:31.196340+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547785+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670785+00:00",
     "n_forecasters": null,
     "open_time": "2026-09-28T14:00:00Z",
     "p": null,
@@ -111,10 +116,11 @@
   },
   "46023": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-04T21:24:31.196337+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547781+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670782+00:00",
     "n_forecasters": null,
     "open_time": "2026-09-29T21:00:00Z",
     "p": null,
@@ -133,10 +139,11 @@
   },
   "46024": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-04T21:24:31.196333+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547777+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670778+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-01T04:00:00Z",
     "p": null,
@@ -155,10 +162,11 @@
   },
   "46043": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-04T21:24:31.196306+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547772+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670773+00:00",
     "n_forecasters": null,
     "open_time": "2026-09-30T14:00:00Z",
     "p": null,
@@ -177,6 +185,7 @@
   },
   "46056": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943734+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -193,10 +202,10 @@
       "start_time": 1791227668.845408
     },
     "forecast_time": "2026-10-05T19:14:28.845408+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547768+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670769+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T17:20:00Z",
-    "p": null,
+    "p": 0.7,
     "p_community": null,
     "post_id": 45875,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -212,6 +221,7 @@
   },
   "46073": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044067+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -228,10 +238,10 @@
       "start_time": 1791162539.03727
     },
     "forecast_time": "2026-10-05T01:08:59.037270+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547990+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.671019+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T00:07:31Z",
-    "p": null,
+    "p": 0.45,
     "p_community": null,
     "post_id": 45891,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -247,6 +257,7 @@
   },
   "46074": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044063+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -273,7 +284,7 @@
       "start_time": 1791162522.763793
     },
     "forecast_time": "2026-10-05T01:08:42.763793+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547987+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.671015+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T00:30:12Z",
     "p": null,
@@ -292,6 +303,7 @@
   },
   "46075": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044060+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -513,7 +525,7 @@
       "start_time": 1791162512.59252
     },
     "forecast_time": "2026-10-05T01:08:32.592520+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547982+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.671011+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T00:36:25Z",
     "p": null,
@@ -532,6 +544,7 @@
   },
   "46076": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044053+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -548,10 +561,10 @@
       "start_time": 1791162498.815254
     },
     "forecast_time": "2026-10-05T01:08:18.815254+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547979+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.671007+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T00:37:27Z",
-    "p": null,
+    "p": 0.75,
     "p_community": null,
     "post_id": 45894,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -567,10 +580,11 @@
   },
   "46077": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044050+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547976+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.671004+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T01:20:36Z",
     "p": null,
@@ -589,10 +603,11 @@
   },
   "46078": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044046+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547972+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.671001+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T01:26:03Z",
     "p": null,
@@ -611,10 +626,11 @@
   },
   "46079": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044043+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547969+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670998+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T02:29:34Z",
     "p": null,
@@ -633,10 +649,11 @@
   },
   "46080": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044039+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547966+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670995+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T02:42:05Z",
     "p": null,
@@ -655,10 +672,11 @@
   },
   "46081": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044036+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547963+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670992+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T02:46:30Z",
     "p": null,
@@ -677,10 +695,11 @@
   },
   "46082": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044032+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547960+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670989+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T03:07:03Z",
     "p": null,
@@ -699,10 +718,11 @@
   },
   "46083": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044028+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547957+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670986+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T03:39:29Z",
     "p": null,
@@ -721,10 +741,11 @@
   },
   "46084": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044025+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547954+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670983+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T04:02:58Z",
     "p": null,
@@ -743,10 +764,11 @@
   },
   "46085": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044021+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547951+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670980+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T04:23:24Z",
     "p": null,
@@ -765,10 +787,11 @@
   },
   "46086": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-05T05:29:35.044017+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547948+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670976+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T04:27:47Z",
     "p": null,
@@ -787,10 +810,11 @@
   },
   "46087": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943870+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547945+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670973+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T05:40:32Z",
     "p": null,
@@ -809,10 +833,11 @@
   },
   "46088": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943868+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547942+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670970+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T05:50:37Z",
     "p": null,
@@ -831,10 +856,11 @@
   },
   "46089": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943866+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547939+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670963+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T06:02:50Z",
     "p": null,
@@ -853,10 +879,11 @@
   },
   "46090": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943864+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547936+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670929+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T06:08:23Z",
     "p": null,
@@ -875,10 +902,11 @@
   },
   "46091": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943862+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547933+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670926+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T06:11:45Z",
     "p": null,
@@ -897,6 +925,7 @@
   },
   "46092": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943860+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -913,10 +942,10 @@
       "start_time": 1791194429.182877
     },
     "forecast_time": "2026-10-05T10:00:29.182877+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547929+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670923+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T07:16:10Z",
-    "p": null,
+    "p": 0.8,
     "p_community": null,
     "post_id": 45910,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -932,6 +961,7 @@
   },
   "46093": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943858+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -1010,7 +1040,7 @@
       "start_time": 1791194420.455163
     },
     "forecast_time": "2026-10-05T10:00:20.455163+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547926+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670919+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T07:38:05Z",
     "p": null,
@@ -1029,6 +1059,7 @@
   },
   "46094": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943856+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -1250,7 +1281,7 @@
       "start_time": 1791194438.441466
     },
     "forecast_time": "2026-10-05T10:00:38.441466+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547921+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670915+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T07:44:15Z",
     "p": null,
@@ -1269,6 +1300,7 @@
   },
   "46095": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943854+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -1491,7 +1523,7 @@
       "start_time": 1791194408.510631
     },
     "forecast_time": "2026-10-05T10:00:08.510631+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547916+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670910+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T08:04:44Z",
     "p": null,
@@ -1510,6 +1542,7 @@
   },
   "46096": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943852+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -1526,10 +1559,10 @@
       "start_time": 1791194393.888675
     },
     "forecast_time": "2026-10-05T09:59:53.888675+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547913+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670907+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T09:26:12Z",
-    "p": null,
+    "p": 0.8,
     "p_community": null,
     "post_id": 45914,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -1545,10 +1578,11 @@
   },
   "46097": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943849+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547909+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670904+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T10:05:05Z",
     "p": null,
@@ -1567,10 +1601,11 @@
   },
   "46098": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943847+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547906+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670901+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T10:32:53Z",
     "p": null,
@@ -1589,10 +1624,11 @@
   },
   "46099": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943845+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547903+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670898+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T11:39:05Z",
     "p": null,
@@ -1611,10 +1647,11 @@
   },
   "46100": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943841+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547899+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670895+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T11:57:16Z",
     "p": null,
@@ -1633,10 +1670,11 @@
   },
   "46101": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943839+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547895+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670892+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T13:31:46Z",
     "p": null,
@@ -1655,10 +1693,11 @@
   },
   "46102": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943837+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547892+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670889+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T14:36:00Z",
     "p": null,
@@ -1677,10 +1716,11 @@
   },
   "46103": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943834+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547889+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670885+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T15:39:13Z",
     "p": null,
@@ -1699,6 +1739,7 @@
   },
   "46104": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943832+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -1715,10 +1756,10 @@
       "start_time": 1791227766.89528
     },
     "forecast_time": "2026-10-05T19:16:06.895280+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547886+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670882+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T16:30:07Z",
-    "p": null,
+    "p": 0.65,
     "p_community": null,
     "post_id": 45922,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -1734,6 +1775,7 @@
   },
   "46105": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943830+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -1750,10 +1792,10 @@
       "start_time": 1791227757.264198
     },
     "forecast_time": "2026-10-05T19:15:57.264198+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547883+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670879+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T16:45:39Z",
-    "p": null,
+    "p": 0.54,
     "p_community": null,
     "post_id": 45923,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -1769,6 +1811,7 @@
   },
   "46106": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943828+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -1785,10 +1828,10 @@
       "start_time": 1791227731.580312
     },
     "forecast_time": "2026-10-05T19:15:31.580312+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547879+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670876+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T16:57:22Z",
-    "p": null,
+    "p": 0.75,
     "p_community": null,
     "post_id": 45924,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -1804,6 +1847,7 @@
   },
   "46107": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943826+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -1820,10 +1864,10 @@
       "start_time": 1791227740.223177
     },
     "forecast_time": "2026-10-05T19:15:40.223177+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547876+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670872+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T17:19:42Z",
-    "p": null,
+    "p": 0.4,
     "p_community": null,
     "post_id": 45925,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -1839,6 +1883,7 @@
   },
   "46108": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943824+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -1855,10 +1900,10 @@
       "start_time": 1791227722.008504
     },
     "forecast_time": "2026-10-05T19:15:22.008504+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547872+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670869+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T17:53:26Z",
-    "p": null,
+    "p": 0.65,
     "p_community": null,
     "post_id": 45926,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -1874,6 +1919,7 @@
   },
   "46109": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943822+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -1890,10 +1936,10 @@
       "start_time": 1791227704.682876
     },
     "forecast_time": "2026-10-05T19:15:04.682876+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547869+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670866+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T18:28:18Z",
-    "p": null,
+    "p": 0.85,
     "p_community": null,
     "post_id": 45927,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -1909,6 +1955,7 @@
   },
   "46110": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943819+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -1925,10 +1972,10 @@
       "start_time": 1791227694.692786
     },
     "forecast_time": "2026-10-05T19:14:54.692786+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547865+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670863+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T18:33:37Z",
-    "p": null,
+    "p": 0.3,
     "p_community": null,
     "post_id": 45928,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -1944,10 +1991,11 @@
   },
   "46111": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943814+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547862+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670860+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T20:44:37Z",
     "p": null,
@@ -1966,10 +2014,11 @@
   },
   "46112": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943810+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547858+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670857+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T21:01:00Z",
     "p": null,
@@ -1988,10 +2037,11 @@
   },
   "46113": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943807+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547854+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670853+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T21:35:20Z",
     "p": null,
@@ -2010,10 +2060,11 @@
   },
   "46114": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943803+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547851+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670850+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T21:49:12Z",
     "p": null,
@@ -2032,6 +2083,7 @@
   },
   "46115": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943786+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -2253,7 +2305,7 @@
       "start_time": 1791247966.284039
     },
     "forecast_time": "2026-10-06T00:52:46.284039+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547846+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670846+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T22:24:05Z",
     "p": null,
@@ -2272,6 +2324,7 @@
   },
   "46116": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943784+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -2288,10 +2341,10 @@
       "start_time": 1791247948.304124
     },
     "forecast_time": "2026-10-06T00:52:28.304124+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547843+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670842+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T22:33:30Z",
-    "p": null,
+    "p": 0.05,
     "p_community": null,
     "post_id": 45934,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -2307,6 +2360,7 @@
   },
   "46117": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943781+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -2323,10 +2377,10 @@
       "start_time": 1791247956.540018
     },
     "forecast_time": "2026-10-06T00:52:36.540018+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547839+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670839+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-05T23:11:09Z",
-    "p": null,
+    "p": 0.25,
     "p_community": null,
     "post_id": 45935,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -2342,6 +2396,7 @@
   },
   "46118": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943779+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -2563,7 +2618,7 @@
       "start_time": 1791247929.308907
     },
     "forecast_time": "2026-10-06T00:52:09.308907+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547834+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670834+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-06T00:02:36Z",
     "p": null,
@@ -2582,6 +2637,7 @@
   },
   "46119": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943777+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -2598,10 +2654,10 @@
       "start_time": 1791270256.548144
     },
     "forecast_time": "2026-10-06T07:04:16.548144+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547831+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670831+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-06T04:42:02Z",
-    "p": null,
+    "p": 0.75,
     "p_community": null,
     "post_id": 45937,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -2617,6 +2673,7 @@
   },
   "46120": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943774+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -2633,10 +2690,10 @@
       "start_time": 1791270247.959398
     },
     "forecast_time": "2026-10-06T07:04:07.959398+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547827+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670827+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-06T05:22:38Z",
-    "p": null,
+    "p": 0.65,
     "p_community": null,
     "post_id": 45938,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -2652,6 +2709,7 @@
   },
   "46121": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943771+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -2668,10 +2726,10 @@
       "start_time": 1791270229.337248
     },
     "forecast_time": "2026-10-06T07:03:49.337248+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547823+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670824+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-06T06:43:15Z",
-    "p": null,
+    "p": 0.55,
     "p_community": null,
     "post_id": 45939,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -2687,10 +2745,11 @@
   },
   "46122": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T10:21:17.943766+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547820+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670821+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-06T08:49:04Z",
     "p": null,
@@ -2709,10 +2768,11 @@
   },
   "46123": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T17:08:46.313518+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547816+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670818+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-06T14:10:05Z",
     "p": null,
@@ -2731,10 +2791,11 @@
   },
   "46124": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T17:08:46.313515+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547813+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670815+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-06T15:18:27Z",
     "p": null,
@@ -2753,10 +2814,11 @@
   },
   "46125": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T17:08:46.313511+00:00",
     "forecast_raw": null,
     "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547809+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670811+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-06T16:20:54Z",
     "p": null,
@@ -2775,6 +2837,7 @@
   },
   "46126": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T22:36:25.547804+00:00",
     "forecast_raw": {
       "author_id": 309743,
@@ -2791,10 +2854,10 @@
       "start_time": 1791315207.775542
     },
     "forecast_time": "2026-10-06T19:33:27.775542+00:00",
-    "last_updated_at": "2026-10-06T22:36:25.547806+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670808+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-06T18:32:55Z",
-    "p": null,
+    "p": 0.55,
     "p_community": null,
     "post_id": 45944,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -2810,13 +2873,27 @@
   },
   "46127": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T22:36:25.547801+00:00",
-    "forecast_raw": null,
-    "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547803+00:00",
+    "forecast_raw": {
+      "author_id": 309743,
+      "centers": null,
+      "distribution_input": null,
+      "end_time": null,
+      "forecast_values": [
+        0.09999999999999998,
+        0.9
+      ],
+      "interval_lower_bounds": null,
+      "interval_upper_bounds": null,
+      "question_id": 46127,
+      "start_time": 1791328093.308838
+    },
+    "forecast_time": "2026-10-06T23:08:13.308838+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670804+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-06T21:17:32Z",
-    "p": null,
+    "p": 0.9,
     "p_community": null,
     "post_id": 45945,
     "producer": "gemini-2.5-flash via openrouter (metaculus template)",
@@ -2832,10 +2909,24 @@
   },
   "46184": {
     "actual_resolve_time": null,
+    "community_raw": null,
     "first_seen_at": "2026-10-06T22:36:25.547755+00:00",
-    "forecast_raw": null,
-    "forecast_time": null,
-    "last_updated_at": "2026-10-06T22:36:25.547763+00:00",
+    "forecast_raw": {
+      "author_id": 309743,
+      "centers": null,
+      "distribution_input": null,
+      "end_time": null,
+      "forecast_values": [
+        0.26999999999999996,
+        0.73
+      ],
+      "interval_lower_bounds": null,
+      "interval_upper_bounds": null,
+      "question_id": 46184,
+      "start_time": 1791328065.965622
+    },
+    "forecast_time": "2026-10-06T23:07:45.965622+00:00",
+    "last_updated_at": "2026-10-06T23:27:49.670764+00:00",
     "n_forecasters": null,
     "open_time": "2026-10-06T22:00:00Z",
     "p": null,
