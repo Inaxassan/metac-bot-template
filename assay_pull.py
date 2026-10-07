@@ -1,9 +1,10 @@
-"""Assay ledger puller v3.2: reads ASSAY-Bot's Metaculus forecasts, community
+"""Assay ledger puller v3.3: reads ASSAY-Bot's Metaculus forecasts, community
 predictions, and resolutions into assay/ledger.json. Runs in GitHub Actions.
 Token never leaves GitHub secrets; output is public data.
 
 Design (2026-10-06), aligned with the maintained Metaculus forecasting-tools
-client (metaculus_client.py, Oct 2026), hardened by three production failures:
+client (metaculus_client.py, Oct 2026) and the Metaculus backend source
+(posts/views.py, questions/serializers), hardened by four production findings:
 - Offset pagination (limit=100, offset=N); zero-new-IDs stop; page cap.
   (v2 followed "next" URLs and looped silently for 6h.)
 - Never silent: every page, retry, and detail fetch prints with flush=True.
@@ -13,13 +14,18 @@ client (metaculus_client.py, Oct 2026), hardened by three production failures:
   visible signal). Detail failures skip that post this run.
 - NEVER-FORGET MERGE: a run that fails to learn a field fills it from the
   old ledger instead of erasing it (p, p_vec, p_community, n_forecasters,
-  forecast_time, forecast_raw, community_raw, cp_checked_at).
+  forecast_time, forecast_raw, community_raw, cp_checked_at, cp_reveal_time).
 - Community data is absent from listings (proven 2026-10-06), so unresolved
   binary/MC posts get a detail GET at most every CP_REFRESH_S seconds
   (cp_checked_at bounds API load). Detail JSON is overlaid onto the listing
   JSON per question id, so keys unique to either survive.
+- CP CAN BE SERVER-HIDDEN (v3.2 run #14: 41 detail fetches, 0 cp): backend
+  is_cp_hidden empties aggregations while unresolved with cp_reveal_time in
+  the future. We record cp_reveal_time, skip detail fetches while hidden
+  (telemetry counts them), and fetch CP once after resolution/reveal when it
+  was never captured — the backend shows CP once resolved or annulled.
 - Shapes are never trusted: community_raw/forecast_raw blobs are stored and
-  the run logs where each cp value came from (listing/detail/none).
+  the run logs where each cp value came from (listing/detail/none/hidden).
 - Ledger write is atomic (tmp file + os.replace).
 """
 
@@ -52,14 +58,15 @@ CP_TYPES = ("binary", "multiple_choice")
 
 SESSION = requests.Session()
 SESSION.headers["Authorization"] = "Token " + TOKEN
-SESSION.headers["User-Agent"] = "assay-ledger/3.2 (github-actions)"
+SESSION.headers["User-Agent"] = "assay-ledger/3.3 (github-actions)"
 
 T0 = time.monotonic()
 PARTIAL = False
 
 # fields filled from the old ledger when a run fails to learn them anew
 FILL_FROM_OLD = ("p", "p_vec", "p_community", "n_forecasters", "forecast_time",
-                 "forecast_raw", "community_raw", "cp_checked_at")
+                 "forecast_raw", "community_raw", "cp_checked_at",
+                 "cp_reveal_time")
 
 
 class PostFetchError(Exception):
@@ -235,6 +242,7 @@ def question_record(q, post, tournament):
         "p_community": community_p(q) if is_binary else None,
         "community_raw": community_raw(q),
         "n_forecasters": n_forecasters(q),
+        "cp_reveal_time": q.get("cp_reveal_time"),
         "cp_checked_at": None,
         "resolution": q.get("resolution"),
         "y": norm_y(q.get("resolution"), q.get("type")),
@@ -291,6 +299,30 @@ def cp_stale(old_rec):
     return (datetime.now(timezone.utc) - last).total_seconds() > CP_REFRESH_S
 
 
+def cp_hidden(rec):
+    """True while the backend hides the community prediction: unresolved and
+    cp_reveal_time in the future (is_cp_hidden empties aggregations)."""
+    if rec.get("resolution") is not None:
+        return False
+    reveal = parse_iso(rec.get("cp_reveal_time"))
+    return reveal is not None and reveal > datetime.now(timezone.utc)
+
+
+def want_cp(rec, old_rec):
+    """Whether a detail fetch for community data is worthwhile this run."""
+    if rec["type"] not in CP_TYPES:
+        return False
+    if cp_hidden(rec):
+        return False                      # server-side hidden; don't ask yet
+    if rec["y"] is not None:
+        # resolved/revealed: capture CP once (binary only; MC cp unused)
+        if rec["type"] != "binary":
+            return False
+        if (old_rec or {}).get("p_community") is not None:
+            return False
+    return cp_stale(old_rec)
+
+
 def main():
     global PARTIAL
     old = {}
@@ -300,7 +332,7 @@ def main():
     records = {}
     skipped = []
     detail_fetches = 0
-    cp_src = {"listing": 0, "detail": 0, "none": 0}
+    cp_src = {"listing": 0, "detail": 0, "none": 0, "hidden": 0}
 
     for tid in TOURNAMENTS:
         n_seen = 0
@@ -309,11 +341,10 @@ def main():
             qs = questions_of(stub)
             prelim = [question_record(q, stub, tid) for q in qs]
 
+            cp_src["hidden"] += sum(1 for r in prelim if cp_hidden(r))
             need_keys = any("my_forecasts" not in q for q in qs)
             need_cp = any(
-                rec["y"] is None and rec["type"] in CP_TYPES
-                and cp_stale(old.get(str(rec["question_id"])))
-                for rec in prelim
+                want_cp(r, old.get(str(r["question_id"]))) for r in prelim
             )
             if ((need_keys or need_cp) and detail_fetches < MAX_DETAIL
                     and not over_budget()):
@@ -365,8 +396,9 @@ def main():
     log("ledger%s: %d questions | with forecast: %d | with community p: %d | resolved: %d | detail fetches: %d | skipped posts: %d"
         % (" (PARTIAL)" if PARTIAL else "", len(old), npred, ncp, nres,
            detail_fetches, len(skipped)))
-    log("cp sources: listing=%d detail=%d none=%d"
-        % (cp_src["listing"], cp_src["detail"], cp_src["none"]))
+    log("cp sources: listing=%d detail=%d none=%d hidden=%d"
+        % (cp_src["listing"], cp_src["detail"], cp_src["none"],
+           cp_src["hidden"]))
     for r in sorted(old.values(), key=lambda x: x["question_id"] or 0):
         log("q%s | %s | p=%s | cp=%s | y=%s | %s" % (
             r["question_id"], r["status"], r["p"], r["p_community"], r["y"],
