@@ -1,0 +1,34 @@
+name: Assay bot
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 */6 * * *"
+permissions:
+  contents: write
+concurrency:
+  group: assay-bot
+  cancel-in-progress: true
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install --quiet forecasting-tools python-dotenv requests
+      - name: Run ASSAY-Bot (tournament mode)
+        env:
+          METACULUS_TOKEN: ${{ secrets.METACULUS_TOKEN }}
+          METACULUS_API_KEY: ${{ secrets.METACULUS_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python -u main.py --mode tournament
+      - name: Commit any local report artifacts
+        run: |
+          git config user.name "assay-bot[bot]"
+          git config user.email "actions@github.com"
+          git pull --rebase --autostash
+          git add -A
+          git diff --cached --quiet && echo "no change" || (git commit -m "assay-bot run artifacts" && git push)
