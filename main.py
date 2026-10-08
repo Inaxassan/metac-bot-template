@@ -56,7 +56,7 @@ class FallTemplateBot2026(ForecastBot):
     This bot is identical to SummerTemplateBot2026.
 
     The main entry point of this bot is `bot.forecast_on_tournament(tournament_id)` in the parent class.
-    See the script at the bottom of the file for more details on how to run the bot.
+    See the script at the bottom of this file for more details on how to run the bot.
     Ignoring the finer details, the general flow is:
     - Load questions from Metaculus
     - For each question
@@ -230,32 +230,62 @@ class FallTemplateBot2026(ForecastBot):
 
         return await self._binary_prompt_to_forecast(question, prompt)
 
+    # ADOPT 2026-10-08: cross-model median ensemble + 3-97 extremity caps.
+    # One strong, one cheap-same-family, one non-Google for genuine diversity.
+    # A member that throws is EXCLUDED from the median, logged loud -- never
+    # silent; two surviving members still yield a median.
+    _ENSEMBLE_MODELS = [
+        "openrouter/google/gemini-2.5-flash",
+        "openrouter/google/gemini-2.5-flash-lite",
+        "openrouter/deepseek/deepseek-chat",
+    ]
+    _EXTREMITY_CAPS = (0.03, 0.97)
+
     async def _binary_prompt_to_forecast(
         self,
         question: BinaryQuestion,
         prompt: str,
     ) -> ReasonedPrediction[float]:
-        reasoning = await self.get_llm("default", "llm").invoke(prompt)
-        logger.info(f"Reasoning for URL {question.page_url}: {reasoning}")
         parsing_instructions = clean_indents(
             f"""
             The text given to you is trying to give a probability forecast for a binary question.
             {self._create_resolved_question_parsing_message()}
             """
         )
-        binary_prediction: BinaryPrediction = await structure_output(
-            reasoning,
-            BinaryPrediction,
-            model=self.get_llm("parser", "llm"),
-            num_validation_samples=self._structure_output_validation_samples,
-            additional_instructions=parsing_instructions,
-        )
-        decimal_pred = max(0.01, min(0.99, binary_prediction.prediction_in_decimal))
-
-        logger.info(
-            f"Forecasted URL {question.page_url} with prediction: {decimal_pred}."
-        )
-        return ReasonedPrediction(prediction_value=decimal_pred, reasoning=reasoning)
+        decimals, reasonings = [], []
+        for model_name in self._ENSEMBLE_MODELS:
+            short = model_name.split("/")[-1]
+            try:
+                member = GeneralLlm(model=model_name, temperature=0.3,
+                                    timeout=120, allowed_tries=2)
+                reasoning = await member.invoke(prompt)
+                logger.info(f"[{short}] reasoning for {question.page_url}")
+                parsed: BinaryPrediction = await structure_output(
+                    reasoning,
+                    BinaryPrediction,
+                    model=self.get_llm("parser", "llm"),
+                    num_validation_samples=self._structure_output_validation_samples,
+                    additional_instructions=parsing_instructions,
+                )
+                decimals.append(float(parsed.prediction_in_decimal))
+                reasonings.append(f"[{short}]\n{reasoning}")
+            except Exception as e:
+                logger.warning(f"[{short}] excluded from ensemble: {e!r}")
+        if not decimals:
+            raise RuntimeError(
+                f"all ensemble members failed for {question.page_url}")
+        decimals.sort()
+        m = len(decimals)
+        mid = decimals[m // 2] if m % 2 else (decimals[m // 2 - 1]
+                                              + decimals[m // 2]) / 2
+        decimal_pred = max(self._EXTREMITY_CAPS[0],
+                           min(self._EXTREMITY_CAPS[1], mid))
+        logger.info(f"Ensemble median for {question.page_url}: "
+                    f"{decimal_pred} from {decimals}")
+        full_reasoning = ("\n\n---\n\n".join(reasonings)
+                          + f"\n\nEnsemble median: {decimal_pred:.3f}")
+        return ReasonedPrediction(prediction_value=decimal_pred,
+                                  reasoning=full_reasoning)
 
     ##################################### MULTIPLE CHOICE QUESTIONS #####################################
 
@@ -709,7 +739,7 @@ if __name__ == "__main__":
     # uncomment and edit to pin specific models.
     template_bot = FallTemplateBot2026(
         research_reports_per_question=1,
-        predictions_per_research_report=5,
+        predictions_per_research_report=2,  # ADOPT 2026-10-08: ensemble replaces within-model sampling
         use_research_summary_to_forecast=False,
         publish_reports_to_metaculus=publish_to_metaculus,
         folder_to_save_reports_to=None,
@@ -781,4 +811,4 @@ if __name__ == "__main__":
         forecast_reports,
         will_publish=publish_to_metaculus,
         tournament_url=TOURNAMENT_URLS.get(run_mode),
-    )
+        )
