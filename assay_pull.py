@@ -1,10 +1,10 @@
-"""Assay ledger puller v3.4.1: reads ASSAY-Bot's Metaculus forecasts, community
+"""Assay ledger puller v3.4: reads ASSAY-Bot's Metaculus forecasts, community
 predictions, and resolutions into assay/ledger.json. Runs in GitHub Actions.
 Token never leaves GitHub secrets; output is public data.
 
 Design (2026-10-08), aligned with the maintained Metaculus forecasting-tools
 client and the Metaculus backend source (posts/views.py, questions/services/
-forecasts.py, utils/views.py), hardened by six production findings:
+forecasts.py, utils/views.py), hardened by five production findings:
 - Offset pagination (limit=100, offset=N); zero-new-IDs stop; page cap.
   (v2 followed "next" URLs and looped silently for 6h.)
 - Never silent: every page, retry, and fetch prints with flush=True.
@@ -22,7 +22,7 @@ forecasts.py, utils/views.py), hardened by six production findings:
 - CP SOURCE REDESIGN (v3.4): post detail always carries an aggregations key
   but it is EMPTY when all forecasts are bot-authored -- the backend excludes
   bots unless question.include_bots_in_aggregates (default False; proven by
-  runs #14+ and telemetry none=70 hidden=0). CP comes from
+  runs #14+ and telemetry none=70 hidden=0). CP now comes from
   /api/aggregation_explorer/?question_id=N[&include_bots=true], which also
   returns forecasters_count. Scope is tried default-then-bots (bots-first when
   the ledger remembers with_bots); cp_scope records WHICH CROWD the number
@@ -33,6 +33,11 @@ forecasts.py, utils/views.py), hardened by six production findings:
   cp_scope="empty" and re-watched on the CP_REFRESH cadence (6-hourly) instead
   of re-probing every run; detail backfill and explorer probes carry
   SEPARATE call caps (MAX_DETAIL / MAX_EXPLORER) so neither starves the other.
+- V3.4.2: explorer calls always send aggregation_methods -- the backend rejects
+  include_bots without it (HTTP 400, the run-#21 failure). And a FAILED fetch
+  no longer earns the "empty" stamp: empty means a real 200 with no crowd,
+  never a network/HTTP error; failures retry next run instead of writing
+  a verdict without evidence.
 - Ledger write is atomic (tmp file + os.replace).
 """
 
@@ -67,11 +72,12 @@ CP_TYPES = ("binary", "multiple_choice")
 
 SESSION = requests.Session()
 SESSION.headers["Authorization"] = "Token " + TOKEN
-SESSION.headers["User-Agent"] = "assay-ledger/3.4.1 (github-actions)"
+SESSION.headers["User-Agent"] = "assay-ledger/3.4.2 (github-actions)"
 
 T0 = time.monotonic()
 PARTIAL = False
 
+# fields filled from the old ledger when a run fails to learn them anew
 FILL_FROM_OLD = ("p", "p_vec", "p_community", "n_forecasters", "forecast_time",
                  "forecast_raw", "community_raw", "cp_checked_at",
                  "cp_reveal_time", "cp_scope")
@@ -344,13 +350,17 @@ def fetch_cp(rec, old_rec):
     so 'default' empty -> retry with include_bots=true. cp_scope records which
     crowd the number describes. Returns (got_data, last_response).
     v3.4.1: both scopes empty -> cp_scope='empty' so the question is re-watched
-    on the refresh cadence instead of every run."""
+    on the refresh cadence instead of every run.
+    v3.4.2: aggregation_methods always sent (backend 400s include_bots without
+    it); the 'empty' stamp requires a real response -- failures stay unverdicted
+    and retry next run."""
     scope_order = ["default", "bots"]
     if (old_rec or {}).get("cp_scope") == "with_bots":
         scope_order = ["bots", "default"]      # remember where the crowd lives
     resp = None
     for scope in scope_order:
-        params = {"question_id": rec["question_id"]}
+        params = {"question_id": rec["question_id"],
+                  "aggregation_methods": "recency_weighted,unweighted"}
         if scope == "bots":
             params["include_bots"] = "true"
         try:
@@ -371,8 +381,9 @@ def fetch_cp(rec, old_rec):
         if rec["p_community"] is not None or raw is not None or (nf or 0) > 0:
             rec["cp_scope"] = "with_bots" if scope == "bots" else "default"
             return True, resp
-    rec["cp_scope"] = "empty"
-    return False, resp
+    if resp is not None:
+        rec["cp_scope"] = "empty"    # verdict earned: real 200, no crowd
+    return False, resp               # resp None = fetch failed: no verdict
 
 
 def cp_probe_log(rec, resp):
