@@ -1,6 +1,8 @@
 import argparse
 import asyncio
+import json
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -266,6 +268,8 @@ class FallTemplateBot2026(ForecastBot):
     _DISAGREEMENT_ALARM_SPREAD = 0.35
     _MIN_ENSEMBLE_MEMBERS = 2
     _EXTREMITY_CAPS = (0.03, 0.97)  # re-emitted: SPAN1 swallows the original
+    _CONFIG_ERA = "fall2026-hi-reasoning"
+    _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
     async def _binary_prompt_to_forecast(
         self,
@@ -357,6 +361,30 @@ class FallTemplateBot2026(ForecastBot):
                     f"{decimal_pred} from {pairs}")
         full_reasoning = ("\n\n---\n\n".join(reasonings)
                           + f"\n\nEnsemble median: {decimal_pred:.3f}")
+        # ADOPT-5 PR-4: dump member (prob, weight) pairs per forecast so
+        # the postmortem collector can join them onto the ledger by
+        # question_id. Telemetry only -- a dump failure must NEVER kill a
+        # forecast, hence the blanket try/except.
+        try:
+            member_record = {
+                "question_id": getattr(question, "id_of_question", None),
+                "post_id": getattr(question, "id_of_post", None),
+                "page_url": getattr(question, "page_url", None),
+                "config_era": self._CONFIG_ERA,
+                "member_pairs": [[round(float(v), 4), float(w)]
+                                 for v, w in pairs],
+                "median": decimal_pred,
+                "n_members": len(pairs),
+                "ts": datetime.now(timezone.utc).isoformat(),
+            }
+            dump_dir = os.path.dirname(self._MEMBERS_DUMP_PATH)
+            if dump_dir:
+                os.makedirs(dump_dir, exist_ok=True)
+            with open(self._MEMBERS_DUMP_PATH, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(member_record) + "\n")
+        except Exception as dump_err:
+            logger.warning(
+                f"MEMBERS-DUMP failed (forecast unaffected): {dump_err!r}")
         return ReasonedPrediction(prediction_value=decimal_pred,
                                   reasoning=full_reasoning)
 

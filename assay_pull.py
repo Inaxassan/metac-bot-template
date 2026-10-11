@@ -247,7 +247,7 @@ def question_record(q, post, tournament):
         "open_time": q.get("open_time"),
         "scheduled_close_time": q.get("scheduled_close_time"),
         "scheduled_resolve_time": q.get("scheduled_resolve_time"),
-        "producer": "gemini-2.5-flash via openrouter (metaculus template)",
+        "producer": "fall2026-hi-reasoning 5-member ensemble via openrouter (metaculus template)",
         "p": my_p(latest, q.get("type")),
         "p_vec": my_p_vec(latest, q.get("type")),
         "forecast_time": (
