@@ -268,7 +268,7 @@ class FallTemplateBot2026(ForecastBot):
     _DISAGREEMENT_ALARM_SPREAD = 0.35
     _MIN_ENSEMBLE_MEMBERS = 2
     _EXTREMITY_CAPS = (0.03, 0.97)  # re-emitted: SPAN1 swallows the original
-    _CONFIG_ERA = "fall2026-hi-reasoning"
+    _CONFIG_ERA = "fall2026-hi-reasoning-asknews-low"
     _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
     async def _binary_prompt_to_forecast(
@@ -854,7 +854,7 @@ if __name__ == "__main__":
                 allowed_tries=2,
             ),
             "summarizer": "openrouter/google/gemini-2.5-flash",
-            "researcher": "openrouter/google/gemini-2.5-flash",
+            "researcher": "asknews/deep-research/low-depth",
             "parser": "openrouter/google/gemini-2.5-flash",
         },
 
