@@ -1,6 +1,8 @@
 import argparse
 import asyncio
+import json
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -230,16 +232,44 @@ class FallTemplateBot2026(ForecastBot):
 
         return await self._binary_prompt_to_forecast(question, prompt)
 
-    # ADOPT 2026-10-08: cross-model median ensemble + 3-97 extremity caps.
-    # One strong, one cheap-same-family, one non-Google for genuine diversity.
-    # A member that throws is EXCLUDED from the median, logged loud -- never
-    # silent; two surviving members still yield a median.
-    _ENSEMBLE_MODELS = [
-        "openrouter/google/gemini-2.5-flash",
-        "openrouter/google/gemini-2.5-flash-lite",
-        "openrouter/deepseek/deepseek-chat",
+    # ADOPT-5 PR-3 2026-10-12: roster swap per ensemble_roster.yaml
+    # (source of truth ~/assaybot/ensemble_roster.yaml, roster_version
+    # 2026-10-12-a, mirrored here because Actions runners never see the box).
+    # Higher-reasoning tier; weighted median; throwing members EXCLUDED loud;
+    # disagreement alarm logs loud and NEVER forces agreement. Cost guard
+    # drops members in drop_order while est cost/question exceeds cap,
+    # floor 2 members, loud breach past the floor -- the $9.91 balance
+    # ceiling stays account-side (Auto Top-Up OFF), never raised from code.
+    # Est = (_EST_IN_TOKENS*pin + _EST_OUT_TOKENS*pout)/1e6; prices probed
+    # from openrouter.ai/api/v1/models on 2026-10-12.
+    _EST_IN_TOKENS = 5000   # OPERATOR-TUNABLE: prompt+research per call
+    _EST_OUT_TOKENS = 4000  # OPERATOR-TUNABLE: completion incl. reasoning
+    _ENSEMBLE_PRICES = {  # (usd_per_1M_prompt, usd_per_1M_completion)
+        "openrouter/openai/gpt-5.4": (2.50, 15.00),
+        "openrouter/openai/gpt-6.1-sol": (2.00, 10.00),
+        "openrouter/anthropic/claude-sonnet-5.5": (2.00, 10.00),
+        "openrouter/x-ai/grok-4.7": (2.00, 6.00),
+        "openrouter/moonshotai/kimi-k2": (0.57, 2.30),
+    }
+    _ENSEMBLE_MEMBERS = [  # (model, weight) -- weight feeds weighted median
+        ("openrouter/openai/gpt-5.4", 1.0),
+        ("openrouter/openai/gpt-6.1-sol", 1.0),
+        ("openrouter/anthropic/claude-sonnet-5.5", 1.0),
+        ("openrouter/x-ai/grok-4.7", 0.7),
+        ("openrouter/moonshotai/kimi-k2", 0.5),
     ]
-    _EXTREMITY_CAPS = (0.03, 0.97)
+    _ENSEMBLE_DROP_ORDER = [
+        "openrouter/x-ai/grok-4.7",
+        "openrouter/openai/gpt-6.1-sol",
+        "openrouter/moonshotai/kimi-k2",
+    ]
+    _ENSEMBLE_REASONING = "high"
+    _MAX_EST_COST_PER_QUESTION_USD = 0.25
+    _DISAGREEMENT_ALARM_SPREAD = 0.35
+    _MIN_ENSEMBLE_MEMBERS = 2
+    _EXTREMITY_CAPS = (0.03, 0.97)  # re-emitted: SPAN1 swallows the original
+    _CONFIG_ERA = "fall2026-hi-reasoning-asknews-low"
+    _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
     async def _binary_prompt_to_forecast(
         self,
@@ -252,12 +282,47 @@ class FallTemplateBot2026(ForecastBot):
             {self._create_resolved_question_parsing_message()}
             """
         )
-        decimals, reasonings = [], []
-        for model_name in self._ENSEMBLE_MODELS:
+        members = list(self._ENSEMBLE_MEMBERS)
+        est_cost = sum(
+            (self._EST_IN_TOKENS * self._ENSEMBLE_PRICES[slug][0]
+             + self._EST_OUT_TOKENS * self._ENSEMBLE_PRICES[slug][1]) / 1e6
+            for slug, _wt in members)
+        for drop_slug in self._ENSEMBLE_DROP_ORDER:
+            if est_cost <= self._MAX_EST_COST_PER_QUESTION_USD:
+                break
+            if len(members) <= self._MIN_ENSEMBLE_MEMBERS:
+                logger.warning(
+                    "COST-GUARD breach: est $%.3f/question over cap $%.3f "
+                    "at %d-member floor; proceeding -- the $9.91 ceiling "
+                    "is account-side, never code-side",
+                    est_cost, self._MAX_EST_COST_PER_QUESTION_USD,
+                    len(members))
+                break
+            hit = next((mm for mm in members if mm[0] == drop_slug), None)
+            if hit is not None:
+                members.remove(hit)
+                _pin, _pout = self._ENSEMBLE_PRICES[drop_slug]
+                est_cost -= (self._EST_IN_TOKENS * _pin
+                             + self._EST_OUT_TOKENS * _pout) / 1e6
+                logger.warning(
+                    "COST-GUARD dropped %s per drop_order; est "
+                    "$%.3f/question, %d members remain",
+                    drop_slug, est_cost, len(members))
+        if est_cost > self._MAX_EST_COST_PER_QUESTION_USD:
+            logger.warning(
+                "COST-GUARD exhausted: drop_order spent, est "
+                "$%.3f/question still over cap $%.3f with %d primaries; "
+                "the $9.91 ceiling stays account-side, never code-side",
+                est_cost, self._MAX_EST_COST_PER_QUESTION_USD,
+                len(members))
+
+        decimals, weights, reasonings = [], [], []
+        for model_name, weight in members:
             short = model_name.split("/")[-1]
             try:
                 member = GeneralLlm(model=model_name, temperature=0.3,
-                                    timeout=120, allowed_tries=2)
+                                    timeout=120, allowed_tries=2,
+                                    reasoning_effort=self._ENSEMBLE_REASONING)
                 reasoning = await member.invoke(prompt)
                 logger.info(f"[{short}] reasoning for {question.page_url}")
                 parsed: BinaryPrediction = await structure_output(
@@ -268,22 +333,58 @@ class FallTemplateBot2026(ForecastBot):
                     additional_instructions=parsing_instructions,
                 )
                 decimals.append(float(parsed.prediction_in_decimal))
+                weights.append(weight)
                 reasonings.append(f"[{short}]\n{reasoning}")
             except Exception as e:
                 logger.warning(f"[{short}] excluded from ensemble: {e!r}")
         if not decimals:
             raise RuntimeError(
                 f"all ensemble members failed for {question.page_url}")
-        decimals.sort()
-        m = len(decimals)
-        mid = decimals[m // 2] if m % 2 else (decimals[m // 2 - 1]
-                                              + decimals[m // 2]) / 2
+        pairs = sorted(zip(decimals, weights))  # ascending by probability
+        half = sum(weights) / 2.0
+        acc = 0.0
+        mid = pairs[-1][0]
+        for val, wt in pairs:
+            acc += wt
+            if acc >= half:
+                mid = val
+                break
+        spread = max(decimals) - min(decimals)
+        if spread > self._DISAGREEMENT_ALARM_SPREAD:
+            logger.warning(
+                f"DISAGREEMENT-ALARM {question.page_url}: member spread "
+                f"{spread:.3f} exceeds {self._DISAGREEMENT_ALARM_SPREAD}; "
+                f"keeping weighted median {mid:.3f}, NO forced agreement")
         decimal_pred = max(self._EXTREMITY_CAPS[0],
                            min(self._EXTREMITY_CAPS[1], mid))
-        logger.info(f"Ensemble median for {question.page_url}: "
-                    f"{decimal_pred} from {decimals}")
+        logger.info(f"Ensemble weighted median for {question.page_url}: "
+                    f"{decimal_pred} from {pairs}")
         full_reasoning = ("\n\n---\n\n".join(reasonings)
                           + f"\n\nEnsemble median: {decimal_pred:.3f}")
+        # ADOPT-5 PR-4: dump member (prob, weight) pairs per forecast so
+        # the postmortem collector can join them onto the ledger by
+        # question_id. Telemetry only -- a dump failure must NEVER kill a
+        # forecast, hence the blanket try/except.
+        try:
+            member_record = {
+                "question_id": getattr(question, "id_of_question", None),
+                "post_id": getattr(question, "id_of_post", None),
+                "page_url": getattr(question, "page_url", None),
+                "config_era": self._CONFIG_ERA,
+                "member_pairs": [[round(float(v), 4), float(w)]
+                                 for v, w in pairs],
+                "median": decimal_pred,
+                "n_members": len(pairs),
+                "ts": datetime.now(timezone.utc).isoformat(),
+            }
+            dump_dir = os.path.dirname(self._MEMBERS_DUMP_PATH)
+            if dump_dir:
+                os.makedirs(dump_dir, exist_ok=True)
+            with open(self._MEMBERS_DUMP_PATH, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(member_record) + "\n")
+        except Exception as dump_err:
+            logger.warning(
+                f"MEMBERS-DUMP failed (forecast unaffected): {dump_err!r}")
         return ReasonedPrediction(prediction_value=decimal_pred,
                                   reasoning=full_reasoning)
 
@@ -753,7 +854,7 @@ if __name__ == "__main__":
                 allowed_tries=2,
             ),
             "summarizer": "openrouter/google/gemini-2.5-flash",
-            "researcher": "openrouter/google/gemini-2.5-flash",
+            "researcher": "asknews/deep-research/low-depth",
             "parser": "openrouter/google/gemini-2.5-flash",
         },
 

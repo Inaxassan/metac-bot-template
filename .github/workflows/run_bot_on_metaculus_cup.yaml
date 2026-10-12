@@ -12,6 +12,9 @@ concurrency:
 
 
 # Daily job to run the simple forecast bot
+permissions:
+  contents: write
+
 jobs:
   forecast_job:
     runs-on: ubuntu-latest # determines the machine that will run the job - keep as is
@@ -44,3 +47,15 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ASKNEWS_CLIENT_ID: ${{ secrets.ASKNEWS_CLIENT_ID }}
           ASKNEWS_SECRET: ${{ secrets.ASKNEWS_SECRET }}
+
+      - name: Commit ensemble members dump if changed
+        run: |
+          if [ -f assay/ensemble_members.jsonl ]; then
+            git config user.name "assay-ledger[bot]"
+            git config user.email "actions@github.com"
+            git pull --rebase --autostash
+            git add assay/ensemble_members.jsonl
+            git diff --cached --quiet && echo "no change" || (git commit -m "assay ensemble members update" && git push)
+          else
+            echo "MEMBERS-DUMP absent: no binary dump this run (check bot logs)"
+          fi
