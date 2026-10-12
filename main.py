@@ -268,7 +268,7 @@ class FallTemplateBot2026(ForecastBot):
     _DISAGREEMENT_ALARM_SPREAD = 0.35
     _MIN_ENSEMBLE_MEMBERS = 2
     _EXTREMITY_CAPS = (0.03, 0.97)  # re-emitted: SPAN1 swallows the original
-    _CONFIG_ERA = "fall2026-hi-reasoning-asknews-low"
+    _CONFIG_ERA = "fall2026-hi-reasoning-asknews-low-mcnum"
     _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
     async def _binary_prompt_to_forecast(
@@ -388,6 +388,176 @@ class FallTemplateBot2026(ForecastBot):
         return ReasonedPrediction(prediction_value=decimal_pred,
                                   reasoning=full_reasoning)
 
+    # ---- ADOPT-5 PR-3b 2026-10-12: ensemble machinery for MC/numeric/date.
+    # Mirrors the binary path (PR-3): same roster, cost guard, exclusion
+    # doctrine, disagreement alarm, member dump. Binary keeps its inline
+    # loop untouched; these helpers serve the other three question types.
+    # pprr stays 2 by operator decision -- the base class runs each of
+    # these twice per question and aggregates; cost ceiling is account-side.
+    def _cost_guarded_members(self):
+        members = list(self._ENSEMBLE_MEMBERS)
+        est_cost = sum(
+            (self._EST_IN_TOKENS * self._ENSEMBLE_PRICES[slug][0]
+             + self._EST_OUT_TOKENS * self._ENSEMBLE_PRICES[slug][1]) / 1e6
+            for slug, _wt in members)
+        for drop_slug in self._ENSEMBLE_DROP_ORDER:
+            if est_cost <= self._MAX_EST_COST_PER_QUESTION_USD:
+                break
+            if len(members) <= self._MIN_ENSEMBLE_MEMBERS:
+                logger.warning(
+                    "COST-GUARD breach: est $%.3f/question over cap $%.3f "
+                    "at %d-member floor; proceeding -- the $9.91 ceiling "
+                    "is account-side, never code-side",
+                    est_cost, self._MAX_EST_COST_PER_QUESTION_USD,
+                    len(members))
+                break
+            hit = next((mm for mm in members if mm[0] == drop_slug), None)
+            if hit is not None:
+                members.remove(hit)
+                _pin, _pout = self._ENSEMBLE_PRICES[drop_slug]
+                est_cost -= (self._EST_IN_TOKENS * _pin
+                             + self._EST_OUT_TOKENS * _pout) / 1e6
+                logger.warning(
+                    "COST-GUARD dropped %s per drop_order; est "
+                    "$%.3f/question, %d members remain",
+                    drop_slug, est_cost, len(members))
+        if est_cost > self._MAX_EST_COST_PER_QUESTION_USD:
+            logger.warning(
+                "COST-GUARD exhausted: drop_order spent, est "
+                "$%.3f/question still over cap $%.3f with %d primaries; "
+                "the $9.91 ceiling stays account-side, never code-side",
+                est_cost, self._MAX_EST_COST_PER_QUESTION_USD,
+                len(members))
+        return members
+
+    async def _ensemble_reasonings(self, question, prompt):
+        """Run the roster on prompt -> [(short, weight, reasoning)].
+        Throwing members excluded loud; all-fail raises RuntimeError."""
+        members_ok = []
+        for model_name, weight in self._cost_guarded_members():
+            short = model_name.split("/")[-1]
+            try:
+                member = GeneralLlm(model=model_name, temperature=0.3,
+                                    timeout=120, allowed_tries=2,
+                                    reasoning_effort=self._ENSEMBLE_REASONING)
+                reasoning = await member.invoke(prompt)
+                logger.info(f"[{short}] reasoning for {question.page_url}")
+                members_ok.append((short, weight, reasoning))
+            except Exception as e:
+                logger.warning(f"[{short}] excluded from ensemble: {e!r}")
+        if not members_ok:
+            raise RuntimeError(
+                f"all ensemble members failed for {question.page_url}")
+        return members_ok
+
+    @staticmethod
+    def _weighted_median_pairs(pairs):
+        pairs = sorted(pairs)
+        half = sum(w for _v, w in pairs) / 2.0
+        acc = 0.0
+        mid = pairs[-1][0]
+        for val, wt in pairs:
+            acc += wt
+            if acc >= half:
+                mid = val
+                break
+        return mid
+
+    def _dump_member_record(self, question, qtype, extra):
+        # Telemetry only -- a dump failure must NEVER kill a forecast.
+        try:
+            member_record = {
+                "question_id": getattr(question, "id_of_question", None),
+                "post_id": getattr(question, "id_of_post", None),
+                "page_url": getattr(question, "page_url", None),
+                "config_era": self._CONFIG_ERA,
+                "question_type": qtype,
+                "ts": datetime.now(timezone.utc).isoformat(),
+            }
+            member_record.update(extra)
+            dump_dir = os.path.dirname(self._MEMBERS_DUMP_PATH)
+            if dump_dir:
+                os.makedirs(dump_dir, exist_ok=True)
+            with open(self._MEMBERS_DUMP_PATH, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(member_record) + "\n")
+        except Exception as dump_err:
+            logger.warning(
+                f"MEMBERS-DUMP failed (forecast unaffected): {dump_err!r}")
+
+    async def _aggregate_percentile_members(self, question, members_ok,
+                                            parsing_instructions, kind):
+        """kind: "numeric" | "date". Per-level weighted median across
+        members (coordinate-wise median of monotone series stays monotone;
+        float noise coerced below). Level-set mismatch or parse failure
+        excludes that member loud. Returns (percentile_list, member_pct)."""
+        out_type = list[DatePercentile] if kind == "date" else list[Percentile]
+        per_level = {}
+        member_pct = {}
+        level_set = None
+        for short, weight, reasoning in members_ok:
+            try:
+                plist = await structure_output(
+                    reasoning,
+                    out_type,
+                    model=self.get_llm("parser", "llm"),
+                    additional_instructions=parsing_instructions,
+                    num_validation_samples=self._structure_output_validation_samples,
+                )
+                conv = []
+                for p in plist:
+                    if kind == "date":
+                        conv.append(Percentile(percentile=float(p.percentile),
+                                               value=float(p.value.timestamp())))
+                    else:
+                        conv.append(Percentile(percentile=float(p.percentile),
+                                               value=float(p.value)))
+                conv.sort(key=lambda p: p.percentile)
+                levels = [p.percentile for p in conv]
+                if level_set is None:
+                    level_set = levels
+                if levels != level_set:
+                    raise ValueError(
+                        f"percentile level mismatch: {levels} vs {level_set}")
+                member_pct[short] = [[round(p.percentile, 4), round(p.value, 6)]
+                                     for p in conv]
+                for p in conv:
+                    per_level.setdefault(p.percentile, []).append((p.value, weight))
+            except Exception as e:
+                logger.warning(f"[{short}] {kind} parse excluded: {e!r}")
+        if not member_pct:
+            raise RuntimeError(
+                f"all ensemble members failed to parse for {question.page_url}")
+        percentile_list = [
+            Percentile(percentile=lv,
+                       value=self._weighted_median_pairs(pairs))
+            for lv, pairs in sorted(per_level.items())
+        ]
+        for i in range(1, len(percentile_list)):
+            if percentile_list[i].value < percentile_list[i - 1].value:
+                percentile_list[i].value = percentile_list[i - 1].value
+        # Disagreement alarm on the middle level, normalized to the bound
+        # range so the 0.35 threshold means what it means on the binary path.
+        if len(percentile_list) >= 2:
+            mid_lv = percentile_list[len(percentile_list) // 2].percentile
+            vals = [v for v, _w in per_level[mid_lv]]
+            try:
+                if kind == "date":
+                    rng = (question.upper_bound.timestamp()
+                           - question.lower_bound.timestamp())
+                else:
+                    rng = question.upper_bound - question.lower_bound
+            except Exception:
+                rng = None
+            if rng and rng > 0 and vals:
+                spread = (max(vals) - min(vals)) / rng
+                if spread > self._DISAGREEMENT_ALARM_SPREAD:
+                    logger.warning(
+                        f"DISAGREEMENT-ALARM {question.page_url}: {kind} "
+                        f"mid-level spread {spread:.3f} exceeds "
+                        f"{self._DISAGREEMENT_ALARM_SPREAD}; keeping weighted "
+                        f"median, NO forced agreement")
+        return percentile_list, member_pct
+
     ##################################### MULTIPLE CHOICE QUESTIONS #####################################
 
     async def _run_forecast_on_multiple_choice(
@@ -438,6 +608,12 @@ class FallTemplateBot2026(ForecastBot):
         question: MultipleChoiceQuestion,
         prompt: str,
     ) -> ReasonedPrediction[PredictedOptionList]:
+        # ADOPT-5 PR-3b 2026-10-12: roster ensemble replaces the default-LLM
+        # single-shot on this path (binary got it in PR-3). Per-option
+        # weighted median, renormalized to sum 1 (PredictedOptionList
+        # validator requires [0.99, 1.01]); member option-set mismatch or
+        # parse failure excludes that member loud; dump/alarm same doctrine
+        # as binary. pprr stays 2 by operator decision 2026-10-12.
         parsing_instructions = clean_indents(
             f"""
             Make sure that all option names are one of the following:
@@ -448,23 +624,75 @@ class FallTemplateBot2026(ForecastBot):
             {self._create_resolved_question_parsing_message()}
             """
         )
-        reasoning = await self.get_llm("default", "llm").invoke(prompt)
-        logger.info(f"Reasoning for URL {question.page_url}: {reasoning}")
-        predicted_option_list: PredictedOptionList = await structure_output(
-            text_to_structure=reasoning,
-            output_type=PredictedOptionList,
-            model=self.get_llm("parser", "llm"),
-            num_validation_samples=self._structure_output_validation_samples,
-            additional_instructions=parsing_instructions,
-        )
-
+        members_ok = await self._ensemble_reasonings(question, prompt)
+        option_names = [str(o) for o in question.options]
+        per_option = {name: [] for name in option_names}
+        member_probs = {}
+        member_weights = {}
+        for short, weight, reasoning in members_ok:
+            try:
+                pol: PredictedOptionList = await structure_output(
+                    text_to_structure=reasoning,
+                    output_type=PredictedOptionList,
+                    model=self.get_llm("parser", "llm"),
+                    num_validation_samples=self._structure_output_validation_samples,
+                    additional_instructions=parsing_instructions,
+                )
+                got = {str(o.option_name): float(o.probability)
+                       for o in pol.predicted_options}
+                if set(got) != set(option_names):
+                    raise ValueError(
+                        f"option set mismatch: {sorted(got)} vs {sorted(option_names)}")
+                member_probs[short] = got
+                member_weights[short] = weight
+                for name in option_names:
+                    per_option[name].append((got[name], weight))
+            except Exception as e:
+                logger.warning(f"[{short}] MC parse excluded: {e!r}")
+        if not member_probs:
+            raise RuntimeError(
+                f"all ensemble members failed to parse for {question.page_url}")
+        medians = {name: self._weighted_median_pairs(per_option[name])
+                   for name in option_names}
+        total = sum(medians.values())
+        if total <= 0:
+            logger.warning(
+                f"MC medians summed to {total} for {question.page_url}; "
+                f"uniform fallback")
+            medians = {name: 1.0 for name in option_names}
+            total = float(len(option_names))
+        final_probs = {name: medians[name] / total for name in option_names}
+        worst = 0.0
+        for name in option_names:
+            vals = [p for p, _w in per_option[name]]
+            if vals:
+                worst = max(worst, max(vals) - min(vals))
+        if worst > self._DISAGREEMENT_ALARM_SPREAD:
+            logger.warning(
+                f"DISAGREEMENT-ALARM {question.page_url}: MC option spread "
+                f"{worst:.3f} exceeds {self._DISAGREEMENT_ALARM_SPREAD}; "
+                f"keeping weighted medians, NO forced agreement")
+        predicted_option_list = PredictedOptionList(predicted_options=[
+            {"option_name": name, "probability": final_probs[name]}
+            for name in option_names])
         logger.info(
             f"Forecasted URL {question.page_url} with prediction: {predicted_option_list}."
         )
+        full_reasoning = (
+            "\n\n---\n\n".join(f"[{s}]\n{r}" for s, _w, r in members_ok)
+            + "\n\nEnsemble MC weighted medians (renormalized): "
+            + json.dumps({k: round(v, 4) for k, v in final_probs.items()}))
+        self._dump_member_record(question, "mc", {
+            "member_option_probs": {
+                s: {k: round(v, 4) for k, v in mp.items()}
+                for s, mp in member_probs.items()},
+            "member_weights": member_weights,
+            "medians": {k: round(v, 4) for k, v in final_probs.items()},
+            "n_members": len(member_probs),
+        })
         return ReasonedPrediction(
-            prediction_value=predicted_option_list, reasoning=reasoning
+            prediction_value=predicted_option_list, reasoning=full_reasoning
         )
-
     ##################################### NUMERIC QUESTIONS #####################################
 
     async def _run_forecast_on_numeric(
@@ -531,8 +759,10 @@ class FallTemplateBot2026(ForecastBot):
         question: NumericQuestion,
         prompt: str,
     ) -> ReasonedPrediction[NumericDistribution]:
-        reasoning = await self.get_llm("default", "llm").invoke(prompt)
-        logger.info(f"Reasoning for URL {question.page_url}: {reasoning}")
+        # ADOPT-5 PR-3b 2026-10-12: roster ensemble replaces the default-LLM
+        # single-shot on this path (binary got it in PR-3). parsing_instructions
+        # kept VERBATIM from the pre-patch method. pprr stays 2 by operator
+        # decision 2026-10-12.
         parsing_instructions = clean_indents(
             f"""
             The text given to you is trying to give a forecast distribution for a numeric question.
@@ -548,19 +778,35 @@ class FallTemplateBot2026(ForecastBot):
             - Turn any values that are in scientific notation into regular numbers.
             """
         )
-        percentile_list: list[Percentile] = await structure_output(
-            reasoning,
-            list[Percentile],
-            model=self.get_llm("parser", "llm"),
-            additional_instructions=parsing_instructions,
-            num_validation_samples=self._structure_output_validation_samples,
+        members_ok = await self._ensemble_reasonings(question, prompt)
+        percentile_list, member_pct = await self._aggregate_percentile_members(
+            question, members_ok, parsing_instructions, "numeric"
         )
         prediction = NumericDistribution.from_question(percentile_list, question)
         logger.info(
             f"Forecasted URL {question.page_url} with prediction: {prediction.declared_percentiles}."
         )
-        return ReasonedPrediction(prediction_value=prediction, reasoning=reasoning)
-
+        full_reasoning = (
+            f"Ensemble: {len(members_ok)} members | medians: "
+            + json.dumps([[round(p.percentile, 4), round(p.value, 6)] for p in percentile_list])
+            + "\n\n"
+            + "\n\n".join(
+                f"===== {m['short']} (w={m['weight']}) =====\n{m['reasoning']}"
+                for m in members_ok
+            )
+        )
+        self._dump_member_record(
+            question,
+            "numeric",
+            {
+                "member_percentiles": member_pct,
+                "medians": [[round(p.percentile, 4), round(p.value, 6)] for p in percentile_list],
+                "n_members": len(member_pct),
+            },
+        )
+        return ReasonedPrediction(
+            prediction_value=prediction, reasoning=full_reasoning
+        )
     ##################################### DATE QUESTIONS #####################################
 
     async def _run_forecast_on_date(
@@ -623,12 +869,12 @@ class FallTemplateBot2026(ForecastBot):
         return forecast
 
     async def _date_prompt_to_forecast(
-        self,
-        question: DateQuestion,
-        prompt: str,
+        self, question: DateQuestion, prompt: str
     ) -> ReasonedPrediction[NumericDistribution]:
-        reasoning = await self.get_llm("default", "llm").invoke(prompt)
-        logger.info(f"Reasoning for URL {question.page_url}: {reasoning}")
+        # ADOPT-5 PR-3b 2026-10-12: roster ensemble replaces the default-LLM
+        # single-shot on this path (binary got it in PR-3). parsing_instructions
+        # kept VERBATIM from the pre-patch method. pprr stays 2 by operator
+        # decision 2026-10-12.
         parsing_instructions = clean_indents(
             f"""
             The text given to you is trying to give a forecast distribution for a date question.
@@ -640,27 +886,35 @@ class FallTemplateBot2026(ForecastBot):
             - If percentiles are not explicitly given (e.g. only a single value is given) please don't return a parsed output, but rather indicate that the answer is not explicitly given in the text.
             """
         )
-        date_percentile_list: list[DatePercentile] = await structure_output(
-            reasoning,
-            list[DatePercentile],
-            model=self.get_llm("parser", "llm"),
-            additional_instructions=parsing_instructions,
-            num_validation_samples=self._structure_output_validation_samples,
+        members_ok = await self._ensemble_reasonings(question, prompt)
+        percentile_list, member_pct = await self._aggregate_percentile_members(
+            question, members_ok, parsing_instructions, "date"
         )
-
-        percentile_list = [
-            Percentile(
-                percentile=percentile.percentile,
-                value=percentile.value.timestamp(),
-            )
-            for percentile in date_percentile_list
-        ]
         prediction = NumericDistribution.from_question(percentile_list, question)
         logger.info(
             f"Forecasted URL {question.page_url} with prediction: {prediction.declared_percentiles}."
         )
-        return ReasonedPrediction(prediction_value=prediction, reasoning=reasoning)
-
+        full_reasoning = (
+            f"Ensemble: {len(members_ok)} members | medians: "
+            + json.dumps([[round(p.percentile, 4), str(p.value)[:10]] for p in percentile_list])
+            + "\n\n"
+            + "\n\n".join(
+                f"===== {m['short']} (w={m['weight']}) =====\n{m['reasoning']}"
+                for m in members_ok
+            )
+        )
+        self._dump_member_record(
+            question,
+            "date",
+            {
+                "member_percentiles": member_pct,
+                "medians": [[round(p.percentile, 4), str(p.value)[:10]] for p in percentile_list],
+                "n_members": len(member_pct),
+            },
+        )
+        return ReasonedPrediction(
+            prediction_value=prediction, reasoning=full_reasoning
+        )
     def _create_resolved_question_parsing_message(self) -> str:
         return "- If the text concludes that the question has already resolved *in the past* (i.e. it treats the question as decided rather than something to forecast), please DO NOT return a parsed output, even if a final forecast is also given. Instead indicate that the answer is not explicitly given in the text.\n"
 
