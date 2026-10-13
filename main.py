@@ -556,6 +556,38 @@ class FallTemplateBot2026(ForecastBot):
                         f"mid-level spread {spread:.3f} exceeds "
                         f"{self._DISAGREEMENT_ALARM_SPREAD}; keeping weighted "
                         f"median, NO forced agreement")
+
+        # PR-8 (2026-10-13): clamp percentile values into the question's
+        # declared bounds. Aggregating disagreeing members can push outer
+        # percentiles out of bounds (observed: question 45340, bounds
+        # [150000, 250000], p90 at 480000/520000); NumericDistribution
+        # validation then rejects the whole prediction and the forecast never
+        # posts. Clamp so every forecast can post. Date values are stored as
+        # float timestamps, so bounds go through .timestamp() for kind=date.
+        # Any clamp error logs and passes through unclamped (pre-PR-8
+        # behavior); the clamp can never introduce a new failure mode.
+        try:
+            if kind == "date":
+                _pr8_lo = question.lower_bound.timestamp()
+                _pr8_hi = question.upper_bound.timestamp()
+            else:
+                _pr8_lo = question.lower_bound
+                _pr8_hi = question.upper_bound
+            if _pr8_lo is not None and _pr8_hi is not None:
+                _pr8_clamped = 0
+                for p in percentile_list:
+                    if p.value < _pr8_lo:
+                        p.value = _pr8_lo
+                        _pr8_clamped += 1
+                    elif p.value > _pr8_hi:
+                        p.value = _pr8_hi
+                        _pr8_clamped += 1
+                if _pr8_clamped:
+                    logger.warning(
+                        f"PR8-CLAMP {question.page_url}: {kind} "
+                        f"{_pr8_clamped} percentile(s) clamped into bounds")
+        except Exception as e:
+            logger.warning(f"PR8-CLAMP skipped ({e!r}); passing through unclamped")
         return percentile_list, member_pct
 
     ##################################### MULTIPLE CHOICE QUESTIONS #####################################
