@@ -1161,6 +1161,18 @@ if __name__ == "__main__":
             )
         )
 
+
+    # PR-7 (2026-10-13): closed-question tolerance. A question that closes
+    # before the forecast POST returns 405 'already closed to forecasting';
+    # it can never succeed, so counting it as a failure reds the whole run,
+    # blocks the artifact commit, and re-burns research credit every cron.
+    # Filter those exceptions out of the summary; real errors still raise.
+    def _pr7_is_closed_skip(r):
+        return isinstance(r, Exception) and "already closed to forecasting" in str(r)
+    _pr7_closed_skips = [r for r in forecast_reports if _pr7_is_closed_skip(r)]
+    if _pr7_closed_skips:
+        print(f"PR7-SKIP: {len(_pr7_closed_skips)} question(s) already closed to forecasting; skipped, not counted as failures")
+        forecast_reports = [r for r in forecast_reports if not _pr7_is_closed_skip(r)]
     template_bot.log_report_summary(forecast_reports)
     print_run_summary_banner(
         forecast_reports,
