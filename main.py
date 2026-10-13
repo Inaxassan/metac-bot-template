@@ -791,8 +791,8 @@ class FallTemplateBot2026(ForecastBot):
             + json.dumps([[round(p.percentile, 4), round(p.value, 6)] for p in percentile_list])
             + "\n\n"
             + "\n\n".join(
-                f"===== {m['short']} (w={m['weight']}) =====\n{m['reasoning']}"
-                for m in members_ok
+                f"===== {short} (w={weight}) =====\n{reasoning}"
+                for short, weight, reasoning in members_ok
             )
         )
         self._dump_member_record(
@@ -899,8 +899,8 @@ class FallTemplateBot2026(ForecastBot):
             + json.dumps([[round(p.percentile, 4), str(p.value)[:10]] for p in percentile_list])
             + "\n\n"
             + "\n\n".join(
-                f"===== {m['short']} (w={m['weight']}) =====\n{m['reasoning']}"
-                for m in members_ok
+                f"===== {short} (w={weight}) =====\n{reasoning}"
+                for short, weight, reasoning in members_ok
             )
         )
         self._dump_member_record(
