@@ -244,6 +244,10 @@ class FallTemplateBot2026(ForecastBot):
     # from openrouter.ai/api/v1/models on 2026-10-12.
     _EST_IN_TOKENS = 5000   # OPERATOR-TUNABLE: prompt+research per call
     _EST_OUT_TOKENS = 4000  # OPERATOR-TUNABLE: completion incl. reasoning
+    # PR9-TUNE (2026-10-14): hard completion cap (incl. reasoning tokens).
+    # Kills litellm's 65536 max_tokens default behind the OpenRouter 402
+    # pre-flight exclusions of run 38481072279. Real usage est ~4k (above).
+    _MAX_COMPLETION_TOKENS = 24576  # OPERATOR-TUNABLE
     _ENSEMBLE_PRICES = {  # (usd_per_1M_prompt, usd_per_1M_completion)
         "openrouter/openai/gpt-5.4": (2.50, 15.00),
         "openrouter/openai/gpt-6.1-sol": (2.00, 10.00),
@@ -268,7 +272,7 @@ class FallTemplateBot2026(ForecastBot):
     _DISAGREEMENT_ALARM_SPREAD = 0.35
     _MIN_ENSEMBLE_MEMBERS = 2
     _EXTREMITY_CAPS = (0.03, 0.97)  # re-emitted: SPAN1 swallows the original
-    _CONFIG_ERA = "fall2026-hi-reasoning-asknews-low-mcnum"
+    _CONFIG_ERA = "fall2026-hi-med-tok24k-mcnum"
     _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
     async def _binary_prompt_to_forecast(
@@ -322,7 +326,7 @@ class FallTemplateBot2026(ForecastBot):
             try:
                 member = GeneralLlm(model=model_name, temperature=0.3,
                                     timeout=120, allowed_tries=2,
-                                    reasoning_effort=self._ENSEMBLE_REASONING)
+                                    reasoning_effort=self._ENSEMBLE_REASONING, max_tokens=self._MAX_COMPLETION_TOKENS)
                 reasoning = await member.invoke(prompt)
                 logger.info(f"[{short}] reasoning for {question.page_url}")
                 parsed: BinaryPrediction = await structure_output(
@@ -439,7 +443,7 @@ class FallTemplateBot2026(ForecastBot):
             try:
                 member = GeneralLlm(model=model_name, temperature=0.3,
                                     timeout=120, allowed_tries=2,
-                                    reasoning_effort=self._ENSEMBLE_REASONING)
+                                    reasoning_effort=self._ENSEMBLE_REASONING, max_tokens=self._MAX_COMPLETION_TOKENS)
                 reasoning = await member.invoke(prompt)
                 logger.info(f"[{short}] reasoning for {question.page_url}")
                 members_ok.append((short, weight, reasoning))
@@ -1140,7 +1144,7 @@ if __name__ == "__main__":
                 allowed_tries=2,
             ),
             "summarizer": "openrouter/google/gemini-2.5-flash",
-            "researcher": "asknews/deep-research/low-depth",
+            "researcher": "asknews/deep-research/medium-depth",
             "parser": "openrouter/google/gemini-2.5-flash",
         },
 
