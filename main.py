@@ -272,6 +272,9 @@ class FallTemplateBot2026(ForecastBot):
     _DISAGREEMENT_ALARM_SPREAD = 0.35
     _MIN_ENSEMBLE_MEMBERS = 2
     _EXTREMITY_CAPS = (0.03, 0.97)  # re-emitted: SPAN1 swallows the original
+    # PR11-CPBLEND + PR-12 (2026-10-14): aggregation pack dials.
+    _CP_BLEND_W = 0.25  # OPERATOR-TUNABLE: community blend weight; 0 disables
+    _EXTREMIZE_GAMMA = 1.0  # OPERATOR-TUNABLE: >1 extremizes, <1 regresses; 1.0 no-op
     _CONFIG_ERA = "fall2026-hi-low-tok24k-mcnum"
     _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
@@ -359,8 +362,20 @@ class FallTemplateBot2026(ForecastBot):
                 f"DISAGREEMENT-ALARM {question.page_url}: member spread "
                 f"{spread:.3f} exceeds {self._DISAGREEMENT_ALARM_SPREAD}; "
                 f"keeping weighted median {mid:.3f}, NO forced agreement")
+        # PR-11 (2026-10-14): community-prediction blend, applied pre-caps.
+        _pr11_cp = getattr(question, "community_prediction_at_access_time", None)
+        if self._CP_BLEND_W > 0 and _pr11_cp is not None:
+            mid = (1.0 - self._CP_BLEND_W) * mid + self._CP_BLEND_W * float(_pr11_cp)
+            logger.info(f"CP-BLEND {question.page_url}: w={self._CP_BLEND_W} cp={_pr11_cp:.3f} -> {mid:.3f}")
         decimal_pred = max(self._EXTREMITY_CAPS[0],
                            min(self._EXTREMITY_CAPS[1], mid))
+        # PR-12 (2026-10-14): extremization dial, applied post-caps; result re-clamped inside caps.
+        if self._EXTREMIZE_GAMMA != 1.0:
+            import math as _pr12_math
+            _pr12_c = min(max(decimal_pred, self._EXTREMITY_CAPS[0]), self._EXTREMITY_CAPS[1])
+            decimal_pred = 1.0 / (1.0 + _pr12_math.exp(-self._EXTREMIZE_GAMMA * _pr12_math.log(_pr12_c / (1.0 - _pr12_c))))
+            decimal_pred = min(max(decimal_pred, self._EXTREMITY_CAPS[0]), self._EXTREMITY_CAPS[1])
+            logger.info(f"EXTREMIZE {question.page_url}: gamma={self._EXTREMIZE_GAMMA} -> {decimal_pred:.3f}")
         logger.info(f"Ensemble weighted median for {question.page_url}: "
                     f"{decimal_pred} from {pairs}")
         full_reasoning = ("\n\n---\n\n".join(reasonings)
