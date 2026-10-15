@@ -271,6 +271,10 @@ class FallTemplateBot2026(ForecastBot):
     _MAX_EST_COST_PER_QUESTION_USD = 0.25
     _DISAGREEMENT_ALARM_SPREAD = 0.35
     _MIN_ENSEMBLE_MEMBERS = 2
+    # PR10-REFRESH (2026-10-15): freshness pass dials (used in __main__ tournament branch).
+    _REFRESH_ENABLED = True  # OPERATOR-TUNABLE: master switch for stale-binary re-forecast
+    _REFRESH_MIN_AGE_HOURS = 72  # OPERATOR-TUNABLE: re-forecast binaries older than this
+    _REFRESH_MAX_PER_RUN = 2  # OPERATOR-TUNABLE: cost cap per run (~2x single-question cost)
     _EXTREMITY_CAPS = (0.03, 0.97)  # re-emitted: SPAN1 swallows the original
     # PR11-CPBLEND + PR-12 (2026-10-14): aggregation pack dials.
     _CP_BLEND_W = 0.25  # OPERATOR-TUNABLE: community blend weight; 0 disables
@@ -1190,6 +1194,35 @@ if __name__ == "__main__":
             )
         )
         forecast_reports = seasonal_tournament_reports + minibench_reports
+        # PR10-REFRESH (2026-10-15): re-forecast our oldest stale binaries.
+        # Spot-at-close scoring punishes one-shot forecasts; top bots refresh.
+        if template_bot._REFRESH_ENABLED:
+            from datetime import datetime as _pr10_dt, timezone as _pr10_tz
+            from forecasting_tools.data_models.questions import BinaryQuestion as _pr10_BQ
+            _pr10_now = _pr10_dt.now(_pr10_tz.utc)
+            _pr10_stale = []
+            for _pr10_tid in (33121, client.CURRENT_MINIBENCH_ID):
+                try:
+                    _pr10_qs = template_bot.metaculus_client.get_all_open_questions_from_tournament(_pr10_tid)
+                except Exception as _pr10_e:
+                    print(f"PR10-REFRESH: candidate fetch failed for {_pr10_tid}: {_pr10_e}")
+                    continue
+                for _pr10_q in _pr10_qs:
+                    _pr10_pfs = getattr(_pr10_q, "previous_forecasts", None)
+                    if isinstance(_pr10_q, _pr10_BQ) and _pr10_pfs:
+                        _pr10_age_h = (_pr10_now - max(_pf.timestamp for _pf in _pr10_pfs)).total_seconds() / 3600.0
+                        if _pr10_age_h >= template_bot._REFRESH_MIN_AGE_HOURS:
+                            _pr10_stale.append((_pr10_age_h, _pr10_q))
+            _pr10_stale.sort(key=lambda _t: _t[0], reverse=True)
+            _pr10_pick = [_q for _a, _q in _pr10_stale[: template_bot._REFRESH_MAX_PER_RUN]]
+            print(f"PR10-REFRESH: {len(_pr10_stale)} stale binaries >{template_bot._REFRESH_MIN_AGE_HOURS}h; refreshing {len(_pr10_pick)} (cap {template_bot._REFRESH_MAX_PER_RUN})")
+            if _pr10_pick:
+                template_bot.skip_previously_forecasted_questions = False
+                try:
+                    forecast_reports = forecast_reports + asyncio.run(
+                        template_bot.forecast_questions(_pr10_pick, return_exceptions=True))
+                finally:
+                    template_bot.skip_previously_forecasted_questions = True
     elif run_mode == "metaculus_cup":
         # The Metaculus Cup may be uninitialized near the start of a season
         # (Jan/May/Sep). MetaculusClient.ACX_2025_TOURNAMENT = 32564 and
