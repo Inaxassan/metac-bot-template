@@ -241,7 +241,7 @@ class FallTemplateBot2026(ForecastBot):
     # floor 2 members, loud breach past the floor -- the $9.91 balance
     # ceiling stays account-side (Auto Top-Up OFF), never raised from code.
     # Est = (_EST_IN_TOKENS*pin + _EST_OUT_TOKENS*pout)/1e6; prices probed
-    # from openrouter.ai/api/v1/models on 2026-10-12.
+    # from openrouter.ai/api/v1/models on 2026-10-12; re-probed 2026-10-16 (PR-13, +deepseek-v4-pro).
     _EST_IN_TOKENS = 5000   # OPERATOR-TUNABLE: prompt+research per call
     _EST_OUT_TOKENS = 4000  # OPERATOR-TUNABLE: completion incl. reasoning
     # PR9-TUNE (2026-10-14): hard completion cap (incl. reasoning tokens).
@@ -254,6 +254,7 @@ class FallTemplateBot2026(ForecastBot):
         "openrouter/anthropic/claude-sonnet-5.5": (2.00, 10.00),
         "openrouter/x-ai/grok-4.7": (2.00, 6.00),
         "openrouter/moonshotai/kimi-k2": (0.57, 2.30),
+        "openrouter/deepseek/deepseek-v4-pro": (0.30, 0.59),  # PR-13: 6th lab, ~$0.004/q/pass
     }
     _ENSEMBLE_MEMBERS = [  # (model, weight) -- weight feeds weighted median
         ("openrouter/openai/gpt-5.4", 1.0),
@@ -261,11 +262,13 @@ class FallTemplateBot2026(ForecastBot):
         ("openrouter/anthropic/claude-sonnet-5.5", 1.0),
         ("openrouter/x-ai/grok-4.7", 0.7),
         ("openrouter/moonshotai/kimi-k2", 0.5),
+        ("openrouter/deepseek/deepseek-v4-pro", 0.4),  # PR-13: cheap diversity seat (trial weight)
     ]
     _ENSEMBLE_DROP_ORDER = [
         "openrouter/x-ai/grok-4.7",
         "openrouter/openai/gpt-6.1-sol",
         "openrouter/moonshotai/kimi-k2",
+        "openrouter/deepseek/deepseek-v4-pro",  # PR-13: cheapest member, drop last
     ]
     _ENSEMBLE_REASONING = "high"
     _MAX_EST_COST_PER_QUESTION_USD = 0.25
@@ -279,7 +282,7 @@ class FallTemplateBot2026(ForecastBot):
     # PR11-CPBLEND + PR-12 (2026-10-14): aggregation pack dials.
     _CP_BLEND_W = 0.25  # OPERATOR-TUNABLE: community blend weight; 0 disables
     _EXTREMIZE_GAMMA = 1.0  # OPERATOR-TUNABLE: >1 extremizes, <1 regresses; 1.0 no-op
-    _CONFIG_ERA = "fall2026-hi-low-tok24k-mcnum"
+    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k"  # PR-13: roster-v2 (+deepseek), single-pass
     _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
     async def _binary_prompt_to_forecast(
@@ -1149,7 +1152,7 @@ if __name__ == "__main__":
     # uncomment and edit to pin specific models.
     template_bot = FallTemplateBot2026(
         research_reports_per_question=1,
-        predictions_per_research_report=2,  # ADOPT 2026-10-08: ensemble replaces within-model sampling
+        predictions_per_research_report=1,  # PR-13 2026-10-16: single-pass; roster diversity replaces the second sample, halves burn
         use_research_summary_to_forecast=False,
         publish_reports_to_metaculus=publish_to_metaculus,
         folder_to_save_reports_to=None,
