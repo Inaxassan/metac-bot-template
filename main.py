@@ -162,6 +162,24 @@ class FallTemplateBot2026(ForecastBot):
                 research = ""
             else:
                 research = await self.get_llm("researcher", "llm").invoke(prompt)
+            # PR-14 (2026-10-16): breadth -- append a grounded-web second
+            # source (Perplexity Sonar via OpenRouter). A second-source
+            # failure NEVER kills the primary research: log and ship
+            # single-source exactly as before.
+            if self._RESEARCH_BREADTH and research:
+                try:
+                    _pr14_sonar = GeneralLlm(
+                        model=self._RESEARCH_SECOND_SOURCE,
+                        temperature=0.1, timeout=120, allowed_tries=1,
+                        max_tokens=4096)
+                    _pr14_supp = await _pr14_sonar.invoke(prompt)
+                    if _pr14_supp and _pr14_supp.strip():
+                        research = (research
+                                    + "\n\n### Supplementary grounded-web research (second source: Perplexity Sonar)\n"
+                                    + _pr14_supp.strip())
+                        logger.info(f"PR14-BREADTH: appended {len(_pr14_supp)} chars second-source research for {question.page_url}")
+                except Exception as _pr14_e:
+                    logger.warning(f"PR14-BREADTH: second source failed for {question.page_url} (continuing single-source): {_pr14_e!r}")
             logger.info(f"Found Research for URL {question.page_url}:\n{research}")
             return research
 
@@ -282,7 +300,11 @@ class FallTemplateBot2026(ForecastBot):
     # PR11-CPBLEND + PR-12 (2026-10-14): aggregation pack dials.
     _CP_BLEND_W = 0.25  # OPERATOR-TUNABLE: community blend weight; 0 disables
     _EXTREMIZE_GAMMA = 1.0  # OPERATOR-TUNABLE: >1 extremizes, <1 regresses; 1.0 no-op
-    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k"  # PR-13: roster-v2 (+deepseek), single-pass
+    # PR-14 (2026-10-16): research breadth -- grounded-web second source.
+    # Winners average 1.75 research sources; AskNews-only put us at 1.0.
+    _RESEARCH_BREADTH = True  # OPERATOR-TUNABLE: append second-source research
+    _RESEARCH_SECOND_SOURCE = "openrouter/perplexity/sonar"  # OPERATOR-TUNABLE (~$0.009/q)
+    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2"  # PR-14: +second research source
     _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
     async def _binary_prompt_to_forecast(
