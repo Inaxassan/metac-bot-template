@@ -304,8 +304,17 @@ class FallTemplateBot2026(ForecastBot):
     # Winners average 1.75 research sources; AskNews-only put us at 1.0.
     _RESEARCH_BREADTH = True  # OPERATOR-TUNABLE: append second-source research
     _RESEARCH_SECOND_SOURCE = "openrouter/perplexity/sonar"  # OPERATOR-TUNABLE (~$0.009/q)
-    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2"  # PR-14: +second research source
+    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2-gsh"  # PR-15: +gamma-shadow telemetry, cross-tournament dedup
     _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
+
+    # PR-15 (2026-10-16): gamma shadow telemetry for the B3 A/B readout.
+    # Counterfactual extremization (gamma=1.3) logged per binary forecast;
+    # the POSTED value is untouched. Join onto ledger resolutions later.
+    @staticmethod
+    def _pr15_shadow_extremize(p, gamma=1.3, caps=(0.03, 0.97)):
+        import math as _pr15_m
+        _c = min(max(p, caps[0]), caps[1])
+        return 1.0 / (1.0 + _pr15_m.exp(-gamma * _pr15_m.log(_c / (1.0 - _c))))
 
     async def _binary_prompt_to_forecast(
         self,
@@ -422,6 +431,7 @@ class FallTemplateBot2026(ForecastBot):
                 "member_pairs": [[round(float(v), 4), float(w)]
                                  for v, w in pairs],
                 "median": decimal_pred,
+                "shadow_gamma_1_3": round(self._pr15_shadow_extremize(decimal_pred), 4),
                 "n_members": len(pairs),
                 "ts": datetime.now(timezone.utc).isoformat(),
             }
@@ -1208,6 +1218,26 @@ if __name__ == "__main__":
     # summary printers below.
     client = MetaculusClient()
     if run_mode == "tournament":
+        # PR-15 (B5, 2026-10-16): cross-tournament dedup shim. A question
+        # co-listed in 33121 and minibench is forecasted once per run, not
+        # twice. Instance-attribute shadow of the SDK method; passthrough
+        # for anything not seen this run (incl. PR-10 refresh picks).
+        _pr15_seen = set()
+        _pr15_orig_fq = template_bot.forecast_questions
+        async def _pr15_dedup(questions, *args, **kwargs):
+            _fresh = []
+            for _q in questions:
+                _qid = (getattr(_q, "id_of_question", None)
+                        or getattr(_q, "id_of_post", None) or id(_q))
+                if _qid in _pr15_seen:
+                    print(f"B5-DEDUP: skipping duplicate forecast for question {_qid} (already done this run)")
+                    continue
+                _pr15_seen.add(_qid)
+                _fresh.append(_q)
+            if not _fresh:
+                return []
+            return await _pr15_orig_fq(_fresh, *args, **kwargs)
+        template_bot.forecast_questions = _pr15_dedup
         seasonal_tournament_reports = asyncio.run(
             template_bot.forecast_on_tournament(
                 33121, return_exceptions=True
