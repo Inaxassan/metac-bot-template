@@ -322,7 +322,10 @@ class FallTemplateBot2026(ForecastBot):
     # Winners average 1.75 research sources; AskNews-only put us at 1.0.
     _RESEARCH_BREADTH = True  # OPERATOR-TUNABLE: append second-source research
     _RESEARCH_SECOND_SOURCE = "openrouter/perplexity/sonar"  # OPERATOR-TUNABLE (~$0.009/q)
-    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2-gsh-bra"  # PR-16: +base-rate anchor prompt, resolution guard, shadow sqrt3
+    # PR-17 (2026-10-17): monotone-cubic smoothing of aggregated percentile
+    # curves (numeric+date). A third of our served volume rides this path.
+    _PCHIP_SMOOTH = True  # OPERATOR-TUNABLE: False -> coarse list passes through
+    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2-gsh-bra-pchip"  # PR-17: +PCHIP smoothing numeric+date
     _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
     # PR-15 (2026-10-16): gamma shadow telemetry for the B3 A/B readout.
@@ -333,6 +336,72 @@ class FallTemplateBot2026(ForecastBot):
         import math as _pr15_m
         _c = min(max(p, caps[0]), caps[1])
         return 1.0 / (1.0 + _pr15_m.exp(-gamma * _pr15_m.log(_c / (1.0 - _c))))
+
+    # PR-17 (2026-10-17): PCHIP smoothing of aggregated percentile curves.
+    # scipy is an OPTIONAL forecasting-tools dep (absent on the Actions
+    # runner), so this is a dependency-free Fritsch-Carlson monotone cubic.
+    # Shape-preserving by construction: no overshoot; non-decreasing values
+    # in -> non-decreasing out. ANY caller-side error -> coarse list passes
+    # through; a smoothing failure must never kill a forecast.
+    @staticmethod
+    def _pr17_pchip_smooth(percentile_list, step=0.05):
+        from forecasting_tools.data_models.numeric_report import (
+            Percentile as _pr17_P)
+        xs = [float(p.percentile) for p in percentile_list]
+        ys = [float(p.value) for p in percentile_list]
+        n = len(xs)
+        if n < 3:
+            return percentile_list
+        hs = [xs[i + 1] - xs[i] for i in range(n - 1)]
+        if any(_h <= 1e-9 for _h in hs):
+            return percentile_list
+        ds = [(ys[i + 1] - ys[i]) / hs[i] for i in range(n - 1)]
+
+        def _pr17_edge(_h0, _h1, _m0, _m1):
+            _d = ((2.0 * _h0 + _h1) * _m0 - _h0 * _m1) / (_h0 + _h1)
+            if _d * _m0 <= 0.0:
+                return 0.0
+            if _m0 * _m1 < 0.0 and abs(_d) > 3.0 * abs(_m0):
+                return 3.0 * _m0
+            return _d
+
+        d = [0.0] * n
+        d[0] = _pr17_edge(hs[0], hs[1], ds[0], ds[1]) if n > 2 else ds[0]
+        d[-1] = _pr17_edge(hs[-1], hs[-2], ds[-1], ds[-2]) if n > 2 else ds[-1]
+        for i in range(1, n - 1):
+            if ds[i - 1] * ds[i] <= 0.0:
+                d[i] = 0.0
+            else:
+                _w1 = 2.0 * hs[i] + hs[i - 1]
+                _w2 = hs[i] + 2.0 * hs[i - 1]
+                d[i] = (_w1 + _w2) / (_w1 / ds[i - 1] + _w2 / ds[i])
+        qs = []
+        _q = xs[0]
+        while _q < xs[-1] - 1e-12:
+            qs.append(_q)
+            _q += step
+        if not qs or abs(qs[-1] - xs[-1]) > 1e-9:
+            qs.append(xs[-1])
+        out = []
+        for xq in qs:
+            i = 0
+            while i < n - 2 and xq > xs[i + 1] + 1e-12:
+                i += 1
+            _t = (xq - xs[i]) / hs[i]
+            _t2 = _t * _t
+            _t3 = _t2 * _t
+            _v = ((2.0 * _t3 - 3.0 * _t2 + 1.0) * ys[i]
+                  + (_t3 - 2.0 * _t2 + _t) * hs[i] * d[i]
+                  + (-2.0 * _t3 + 3.0 * _t2) * ys[i + 1]
+                  + (_t3 - _t2) * hs[i] * d[i + 1])
+            out.append(_v)
+        _incr = ys[-1] >= ys[0]  # paranoia monotone guard, direction-aware
+        for i in range(1, len(out)):
+            if _incr and out[i] < out[i - 1]:
+                out[i] = out[i - 1]
+            elif not _incr and out[i] > out[i - 1]:
+                out[i] = out[i - 1]
+        return [_pr17_P(percentile=_q, value=_v) for _q, _v in zip(qs, out)]
 
     async def _binary_prompt_to_forecast(
         self,
@@ -891,6 +960,13 @@ class FallTemplateBot2026(ForecastBot):
         percentile_list, member_pct = await self._aggregate_percentile_members(
             question, members_ok, parsing_instructions, "numeric"
         )
+        if self._PCHIP_SMOOTH:  # PR-17
+            try:
+                _pr17_n0 = len(percentile_list)
+                percentile_list = self._pr17_pchip_smooth(percentile_list)
+                logger.info(f"PR17-PCHIP {question.page_url}: numeric smoothed {_pr17_n0} -> {len(percentile_list)} levels")
+            except Exception as _pr17_e:
+                logger.warning(f"PR17-PCHIP skipped for {question.page_url} ({_pr17_e!r}); coarse list passes through")
         prediction = NumericDistribution.from_question(percentile_list, question)
         logger.info(
             f"Forecasted URL {question.page_url} with prediction: {prediction.declared_percentiles}."
@@ -999,6 +1075,13 @@ class FallTemplateBot2026(ForecastBot):
         percentile_list, member_pct = await self._aggregate_percentile_members(
             question, members_ok, parsing_instructions, "date"
         )
+        if self._PCHIP_SMOOTH:  # PR-17
+            try:
+                _pr17_n0 = len(percentile_list)
+                percentile_list = self._pr17_pchip_smooth(percentile_list)
+                logger.info(f"PR17-PCHIP {question.page_url}: date smoothed {_pr17_n0} -> {len(percentile_list)} levels")
+            except Exception as _pr17_e:
+                logger.warning(f"PR17-PCHIP skipped for {question.page_url} ({_pr17_e!r}); coarse list passes through")
         prediction = NumericDistribution.from_question(percentile_list, question)
         logger.info(
             f"Forecasted URL {question.page_url} with prediction: {prediction.declared_percentiles}."
