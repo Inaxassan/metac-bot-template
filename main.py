@@ -213,6 +213,11 @@ class FallTemplateBot2026(ForecastBot):
     async def _run_forecast_on_binary(
         self, question: BinaryQuestion, research: str
     ) -> ReasonedPrediction[float]:
+        # PR-16 (2026-10-17): base-rate anchor + resolution-state guard
+        # injected into the prompt below. Field evidence: base-rate
+        # anchoring was the "single biggest lever" for a Spring-2026
+        # winner; open-vs-resolved misreads are a recurring catastrophic
+        # miss class. Prompt-only change; zero added cost per question.
         prompt = clean_indents(
             f"""
             You are a professional forecaster interviewing for a job.
@@ -242,6 +247,19 @@ class FallTemplateBot2026(ForecastBot):
             (d) A brief description of a scenario that results in a Yes outcome.
 
             You write your rationale remembering that good forecasters put extra weight on the status quo outcome since the world changes slowly most of the time.
+
+            Base-rate discipline (mandatory): before weighing the research above, name
+            the reference class this question belongs to and state its empirical base rate
+            ("Base rate: XX%"). That base rate is your anchor. Move away from it only for
+            specific, dated, verifiable evidence in the research, and say explicitly what
+            evidence justifies the movement. If the research contains no real signal, stay
+            at or near the base rate -- do not manufacture conviction.
+
+            Resolution-state guard: treat this question as OPEN and unresolved unless the
+            research explicitly reports the resolution event with a date and a named source.
+            Never go near-certain (outside 3%-97%) on the belief that the outcome "already
+            happened" without such explicit confirmation. Forecast the resolution criteria
+            exactly as written above, not the headline version of the question.
             {self._get_conditional_disclaimer_if_necessary(question)}
 
             The last thing you write is your final answer as: "Probability: ZZ%", 0-100
@@ -304,7 +322,7 @@ class FallTemplateBot2026(ForecastBot):
     # Winners average 1.75 research sources; AskNews-only put us at 1.0.
     _RESEARCH_BREADTH = True  # OPERATOR-TUNABLE: append second-source research
     _RESEARCH_SECOND_SOURCE = "openrouter/perplexity/sonar"  # OPERATOR-TUNABLE (~$0.009/q)
-    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2-gsh"  # PR-15: +gamma-shadow telemetry, cross-tournament dedup
+    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2-gsh-bra"  # PR-16: +base-rate anchor prompt, resolution guard, shadow sqrt3
     _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
     # PR-15 (2026-10-16): gamma shadow telemetry for the B3 A/B readout.
@@ -432,6 +450,7 @@ class FallTemplateBot2026(ForecastBot):
                                  for v, w in pairs],
                 "median": decimal_pred,
                 "shadow_gamma_1_3": round(self._pr15_shadow_extremize(decimal_pred), 4),
+                "shadow_gamma_sqrt3": round(self._pr15_shadow_extremize(decimal_pred, gamma=3.0 ** 0.5), 4),  # PR-16: Neyman-Roughgarden d=sqrt(3) counterfactual
                 "n_members": len(pairs),
                 "ts": datetime.now(timezone.utc).isoformat(),
             }
