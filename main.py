@@ -290,7 +290,8 @@ class FallTemplateBot2026(ForecastBot):
         "openrouter/anthropic/claude-sonnet-5.5": (2.00, 10.00),
         "openrouter/x-ai/grok-4.7": (2.00, 6.00),
         "openrouter/moonshotai/kimi-k2": (0.57, 2.30),
-        "openrouter/deepseek/deepseek-v4-pro": (0.30, 0.59),  # PR-13: 6th lab, ~$0.004/q/pass
+        "openrouter/deepseek/deepseek-v4.1-flash": (0.0632, 0.12),  # PR-19-ROSTER2: V4.1-Flash-1017 seat (OR range $0.0456-0.0632 / $0.08-0.12; guard uses upper bound)
+        "openrouter/anthropic/claude-haiku-5.5": (0.10, 0.50),  # PR-19-ROSTER2: <=100k-prompt tier (>100k = 0.50/2.50)
     }
     _ENSEMBLE_MEMBERS = [  # (model, weight) -- weight feeds weighted median
         ("openrouter/openai/gpt-5.4", 1.0),
@@ -298,13 +299,15 @@ class FallTemplateBot2026(ForecastBot):
         ("openrouter/anthropic/claude-sonnet-5.5", 1.0),
         ("openrouter/x-ai/grok-4.7", 0.7),
         ("openrouter/moonshotai/kimi-k2", 0.5),
-        ("openrouter/deepseek/deepseek-v4-pro", 0.4),  # PR-13: cheap diversity seat (trial weight)
+        ("openrouter/deepseek/deepseek-v4.1-flash", 0.4),  # PR-19: seat swap v4-pro -> V4.1-Flash-1017 (shared-bench leader, ~4x cheaper)
+        ("openrouter/anthropic/claude-haiku-5.5", 0.4),  # PR-19-ROSTER2: 7th seat, trial weight; member-level telemetry on the summarizer model
     ]
     _ENSEMBLE_DROP_ORDER = [
         "openrouter/x-ai/grok-4.7",
         "openrouter/openai/gpt-6.1-sol",
         "openrouter/moonshotai/kimi-k2",
-        "openrouter/deepseek/deepseek-v4-pro",  # PR-13: cheapest member, drop last
+        "openrouter/deepseek/deepseek-v4.1-flash",  # PR-19: cheap seats drop last
+        "openrouter/anthropic/claude-haiku-5.5",
     ]
     _ENSEMBLE_REASONING = "high"
     _MAX_EST_COST_PER_QUESTION_USD = 0.25
@@ -328,7 +331,7 @@ class FallTemplateBot2026(ForecastBot):
     # PR-17 (2026-10-17): monotone-cubic smoothing of aggregated percentile
     # curves (numeric+date). A third of our served volume rides this path.
     _PCHIP_SMOOTH = True  # OPERATOR-TUNABLE: False -> coarse list passes through
-    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2-gsh-bra-pchip-tmem"  # PR-18: +ledger-memory refresh nominations
+    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2-gsh-bra-pchip-tmem-rv2"  # PR-19: roster v2 (v4.1-flash seat + haiku-5.5 seat + de-Google lane)
     _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
     # PR-15 (2026-10-16): gamma shadow telemetry for the B3 A/B readout.
@@ -1297,14 +1300,14 @@ if __name__ == "__main__":
 
                 llms={
             "default": GeneralLlm(
-                model="openrouter/google/gemini-2.5-flash",
+                model="openrouter/anthropic/claude-haiku-5.5",  # PR-19-ROSTER2: de-Google the lane (Safety-Retention hedge)
                 temperature=0.3,
                 timeout=120,
                 allowed_tries=2,
             ),
-            "summarizer": "openrouter/google/gemini-2.5-flash",
+            "summarizer": "openrouter/anthropic/claude-haiku-5.5",
             "researcher": "asknews/deep-research/low-depth",  # PR9B-REVERT 2026-10-14: medium pulls X (Spelunker-gated 403000); back to low
-            "parser": "openrouter/google/gemini-2.5-flash",
+            "parser": "openrouter/anthropic/claude-haiku-5.5",
         },
 
     )
