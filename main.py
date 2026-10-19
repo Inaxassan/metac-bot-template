@@ -314,6 +314,9 @@ class FallTemplateBot2026(ForecastBot):
     _REFRESH_ENABLED = True  # OPERATOR-TUNABLE: master switch for stale-binary re-forecast
     _REFRESH_MIN_AGE_HOURS = 72  # OPERATOR-TUNABLE: re-forecast binaries older than this
     _REFRESH_MAX_PER_RUN = 2  # OPERATOR-TUNABLE: cost cap per run (~2x single-question cost)
+    # PR-18 (2026-10-18): ledger-nominated refresh candidates (PR-10b).
+    _REFRESH_TELEMETRY = True  # OPERATOR-TUNABLE: scan assay/ensemble_members.jsonl too
+    _REFRESH_TELEMETRY_MAX_FETCH = 40  # OPERATOR-TUNABLE: post fetches/run (API only, no LLM)
     _EXTREMITY_CAPS = (0.03, 0.97)  # re-emitted: SPAN1 swallows the original
     # PR11-CPBLEND + PR-12 (2026-10-14): aggregation pack dials.
     _CP_BLEND_W = 0.25  # OPERATOR-TUNABLE: community blend weight; 0 disables
@@ -325,7 +328,7 @@ class FallTemplateBot2026(ForecastBot):
     # PR-17 (2026-10-17): monotone-cubic smoothing of aggregated percentile
     # curves (numeric+date). A third of our served volume rides this path.
     _PCHIP_SMOOTH = True  # OPERATOR-TUNABLE: False -> coarse list passes through
-    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2-gsh-bra-pchip"  # PR-17: +PCHIP smoothing numeric+date
+    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2-gsh-bra-pchip-tmem"  # PR-18: +ledger-memory refresh nominations
     _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
     # PR-15 (2026-10-16): gamma shadow telemetry for the B3 A/B readout.
@@ -1370,6 +1373,79 @@ if __name__ == "__main__":
                         _pr10_age_h = (_pr10_now - max(_pf.timestamp for _pf in _pr10_pfs)).total_seconds() / 3600.0
                         if _pr10_age_h >= template_bot._REFRESH_MIN_AGE_HOURS:
                             _pr10_stale.append((_pr10_age_h, _pr10_q))
+            # PR-18 (2026-10-18): PR10B-TMEMORY - ledger-nominated refresh candidates.
+            # Feeds discover new questions; the ledger remembers old ones. Reads the
+            # telemetry dump (_MEMBERS_DUMP_PATH), nominates tracked questions whose
+            # last forecast is stale, fetches their posts (unpack subquestions for
+            # group posts), and merges open binaries into the stale pool ahead of the
+            # sort/cap. Feed candidates win dedup; all failure modes fail open.
+            if getattr(template_bot, "_REFRESH_TELEMETRY", False):
+                try:
+                    import json as _pr10b_j
+                    import os as _pr10b_os
+                    import re as _pr10b_re
+                    _pr10b_nom = {}
+                    _pr10b_path = getattr(template_bot, "_MEMBERS_DUMP_PATH", "assay/ensemble_members.jsonl")
+                    if _pr10b_path and _pr10b_os.path.exists(_pr10b_path):
+                        with open(_pr10b_path) as _pr10b_f:
+                            for _pr10b_line in _pr10b_f:
+                                try:
+                                    _pr10b_rec = _pr10b_j.loads(_pr10b_line)
+                                except Exception:
+                                    continue
+                                _pr10b_qid = _pr10b_rec.get("question_id")
+                                _pr10b_ts = _pr10b_rec.get("ts")
+                                if not isinstance(_pr10b_qid, int) or not _pr10b_ts:
+                                    continue
+                                _pr10b_pid = _pr10b_rec.get("post_id")
+                                if not isinstance(_pr10b_pid, int):
+                                    _pr10b_m = _pr10b_re.search(r"/questions/(\d+)", str(_pr10b_rec.get("page_url") or ""))
+                                    _pr10b_pid = int(_pr10b_m.group(1)) if _pr10b_m else None
+                                if _pr10b_pid is None:
+                                    continue
+                                if _pr10b_qid not in _pr10b_nom or str(_pr10b_ts) > str(_pr10b_nom[_pr10b_qid][0]):
+                                    _pr10b_nom[_pr10b_qid] = (_pr10b_ts, _pr10b_pid)
+                    _pr10b_have = {getattr(_q, "id_of_question", None) for _a, _q in _pr10_stale}
+                    _pr10b_stale = []
+                    for _pr10b_qid, (_pr10b_ts, _pr10b_pid) in _pr10b_nom.items():
+                        if _pr10b_qid in _pr10b_have:
+                            continue
+                        try:
+                            _pr10b_dtlast = _pr10_dt.fromisoformat(str(_pr10b_ts).replace("Z", "+00:00"))
+                        except Exception:
+                            continue
+                        _pr10b_age = (_pr10_now - _pr10b_dtlast).total_seconds() / 3600.0
+                        if _pr10b_age >= template_bot._REFRESH_MIN_AGE_HOURS:
+                            _pr10b_stale.append((_pr10b_age, _pr10b_qid, _pr10b_pid))
+                    _pr10b_stale.sort(key=lambda _t: _t[0], reverse=True)
+                    _pr10b_posts = {}
+                    for _pr10b_age, _pr10b_qid, _pr10b_pid in _pr10b_stale:
+                        _pr10b_posts.setdefault(_pr10b_pid, []).append((_pr10b_age, _pr10b_qid))
+                    _pr10b_added = 0
+                    _pr10b_fetched = 0
+                    for _pr10b_pid, _pr10b_subs in _pr10b_posts.items():
+                        if _pr10b_fetched >= getattr(template_bot, "_REFRESH_TELEMETRY_MAX_FETCH", 40):
+                            break
+                        _pr10b_fetched += 1
+                        try:
+                            _pr10b_got = template_bot.metaculus_client.get_question_by_post_id(
+                                _pr10b_pid, group_question_mode="unpack_subquestions"
+                            )
+                        except Exception:
+                            continue
+                        if not isinstance(_pr10b_got, list):
+                            _pr10b_got = [_pr10b_got]
+                        _pr10b_want = {_qid: _age for _age, _qid in _pr10b_subs}
+                        for _pr10b_q in _pr10b_got:
+                            _pr10b_qid = getattr(_pr10b_q, "id_of_question", None)
+                            if _pr10b_qid not in _pr10b_want:
+                                continue
+                            if isinstance(_pr10b_q, _pr10_BQ) and getattr(getattr(_pr10b_q, "state", None), "value", getattr(_pr10b_q, "state", None)) == "open":
+                                _pr10_stale.append((_pr10b_want[_pr10b_qid], _pr10b_q))
+                                _pr10b_added += 1
+                    print(f"PR10B-TMEMORY: ledger {len(_pr10b_nom)} tracked; {len(_pr10b_stale)} stale nominees; +{_pr10b_added} open binaries ({_pr10b_fetched} post fetches)")
+                except Exception as _pr10b_e:
+                    print(f"PR10B-TMEMORY: pass failed open: {_pr10b_e!r}")
             _pr10_stale.sort(key=lambda _t: _t[0], reverse=True)
             _pr10_pick = [_q for _a, _q in _pr10_stale[: template_bot._REFRESH_MAX_PER_RUN]]
             print(f"PR10-REFRESH: {len(_pr10_stale)} stale binaries >{template_bot._REFRESH_MIN_AGE_HOURS}h; refreshing {len(_pr10_pick)} (cap {template_bot._REFRESH_MAX_PER_RUN})")
