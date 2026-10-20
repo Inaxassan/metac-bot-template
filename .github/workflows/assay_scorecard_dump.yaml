@@ -10,10 +10,17 @@ name: Assay scorecard dump
 #   assay/scorecard_dump.json back to main — same commit pattern as the
 #   ledger automation. The box then `git pull`s and scores locally.
 # - No schedule: dispatch by hand when you want a fresh scorecard.
+# - Cache-merge: re-runs keep good records and only refetch missing/errored
+#   ones. Set refetch_all=true to rebuild from scratch.
 # - Uses only the METACULUS_TOKEN secret. No OpenRouter, no AskNews.
 
 on:
   workflow_dispatch:
+    inputs:
+      refetch_all:
+        description: "Refetch every question, ignoring the cache"
+        required: false
+        default: "false"
 
 permissions:
   contents: write
@@ -33,6 +40,7 @@ jobs:
       - name: Dump question data
         env:
           METACULUS_TOKEN: ${{ secrets.METACULUS_TOKEN }}
+          REFETCH_ALL: ${{ inputs.refetch_all }}
         run: python3 assay/scorecard_dump.py
       - name: Commit dump if changed
         run: |
