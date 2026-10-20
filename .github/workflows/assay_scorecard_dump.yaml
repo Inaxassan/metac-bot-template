@@ -1,0 +1,47 @@
+name: Assay scorecard dump
+
+# SCORECARD-DUMP: manual, read-only Metaculus question dump for the box-side
+# scorecard (assay_scorecard_v1.py, lives in ~/assaybot, not in this repo).
+#
+# - Token use stays inside Actions (secrets.METACULUS_TOKEN); the runner is
+#   the only network seat Metaculus's edge lets through.
+# - Reads assay/ensemble_members.jsonl, fetches each unique question's public
+#   data (status / resolution / community history), trims it, and commits
+#   assay/scorecard_dump.json back to main — same commit pattern as the
+#   ledger automation. The box then `git pull`s and scores locally.
+# - No schedule: dispatch by hand when you want a fresh scorecard.
+# - Uses only the METACULUS_TOKEN secret. No OpenRouter, no AskNews.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scorecard-dump
+  cancel-in-progress: false
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Dump question data
+        env:
+          METACULUS_TOKEN: ${{ secrets.METACULUS_TOKEN }}
+        run: python3 assay/scorecard_dump.py
+      - name: Commit dump if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assay/scorecard_dump.json
+          if git diff --cached --quiet; then
+            echo "SCORECARD-DUMP: no change since last dump"
+          else
+            git commit -m "scorecard dump $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi
