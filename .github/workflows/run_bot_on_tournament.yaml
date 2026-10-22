@@ -61,6 +61,7 @@ jobs:
             git config user.name "assay-ledger[bot]"
             git config user.email "actions@github.com"
             git pull --rebase --autostash
+          if grep -qE "^(<{7}|={7}|>{7})" assay/ensemble_members.jsonl 2>/dev/null; then echo LEDGER-CONFLICT-refusing-to-commit; exit 1; fi
             git add assay/ensemble_members.jsonl
             git diff --cached --quiet && echo "no change" || (git commit -m "assay ensemble members update" && git push)
           else
