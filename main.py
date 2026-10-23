@@ -137,36 +137,47 @@ class FallTemplateBot2026(ForecastBot):
 
             prompt = self._get_research_prompt(question, researcher)
 
-            if isinstance(researcher, GeneralLlm):
-                research = await researcher.invoke(prompt)
-            elif (
-                researcher == "asknews/news-summaries"
-                or researcher == "asknews/deep-research/low-depth"
-                or researcher == "asknews/deep-research/medium-depth"
-                or researcher == "asknews/deep-research/high-depth"
-            ):
-                research = await AskNewsSearcher().call_preconfigured_version(
-                    researcher, prompt
-                )
-            elif researcher.startswith("smart-searcher"):
-                model_name = researcher.removeprefix("smart-searcher/")
-                searcher = SmartSearcher(
-                    model=model_name,
-                    temperature=0,
-                    num_searches_to_run=2,
-                    num_sites_per_search=10,
-                    use_advanced_filters=False,
-                )
-                research = await searcher.invoke(prompt)
-            elif not researcher or researcher == "None" or researcher == "no_research":
+            # PR-24 (2026-10-22): degraded-research guard. A primary outage or
+            # empty return no longer ships a news-blind forecast silently: the
+            # second source is promoted, and the origin rides on this question's
+            # ledger record so the binary path can crowd-anchor (or skip).
+            _origin = "primary"
+            try:
+                if isinstance(researcher, GeneralLlm):
+                    research = await researcher.invoke(prompt)
+                elif (
+                    researcher == "asknews/news-summaries"
+                    or researcher == "asknews/deep-research/low-depth"
+                    or researcher == "asknews/deep-research/medium-depth"
+                    or researcher == "asknews/deep-research/high-depth"
+                ):
+                    research = await AskNewsSearcher().call_preconfigured_version(
+                        researcher, prompt
+                    )
+                elif researcher.startswith("smart-searcher"):
+                    model_name = researcher.removeprefix("smart-searcher/")
+                    searcher = SmartSearcher(
+                        model=model_name,
+                        temperature=0,
+                        num_searches_to_run=2,
+                        num_sites_per_search=10,
+                        use_advanced_filters=False,
+                    )
+                    research = await searcher.invoke(prompt)
+                elif not researcher or researcher == "None" or researcher == "no_research":
+                    research = ""
+                else:
+                    research = await self.get_llm("researcher", "llm").invoke(prompt)
+            except Exception as _pr24_e:
+                logger.warning(f"RESEARCH-OUTAGE: primary research failed for {question.page_url}: {_pr24_e!r}")
                 research = ""
-            else:
-                research = await self.get_llm("researcher", "llm").invoke(prompt)
-            # PR-14 (2026-10-16): breadth -- append a grounded-web second
-            # source (Perplexity Sonar via OpenRouter). A second-source
-            # failure NEVER kills the primary research: log and ship
-            # single-source exactly as before.
-            if self._RESEARCH_BREADTH and research:
+            if not (research and research.strip()):
+                _origin = "none"
+                research = ""
+            # PR-14 (2026-10-16): breadth -- grounded-web second source
+            # (Perplexity Sonar via OpenRouter). PR-24: attempted even when the
+            # primary came back empty; a second-source failure never kills the run.
+            if self._RESEARCH_BREADTH:
                 try:
                     _pr14_sonar = GeneralLlm(
                         model=self._RESEARCH_SECOND_SOURCE,
@@ -174,12 +185,24 @@ class FallTemplateBot2026(ForecastBot):
                         max_tokens=4096)
                     _pr14_supp = await _pr14_sonar.invoke(prompt)
                     if _pr14_supp and _pr14_supp.strip():
-                        research = (research
-                                    + "\n\n### Supplementary grounded-web research (second source: Perplexity Sonar)\n"
-                                    + _pr14_supp.strip())
-                        logger.info(f"PR14-BREADTH: appended {len(_pr14_supp)} chars second-source research for {question.page_url}")
+                        if _origin == "none":
+                            research = ("### Fallback grounded-web research (primary outage; second source: Perplexity Sonar)\n"
+                                        + _pr14_supp.strip())
+                            _origin = "secondary-fallback"
+                            logger.warning(f"PR24-FALLBACK: second source promoted to primary for {question.page_url} ({len(_pr14_supp)} chars)")
+                        else:
+                            research = (research
+                                        + "\n\n### Supplementary grounded-web research (second source: Perplexity Sonar)\n"
+                                        + _pr14_supp.strip())
+                            logger.info(f"PR14-BREADTH: appended {len(_pr14_supp)} chars second-source research for {question.page_url}")
                 except Exception as _pr14_e:
                     logger.warning(f"PR14-BREADTH: second source failed for {question.page_url} (continuing single-source): {_pr14_e!r}")
+            logger.info(f"RESEARCH-ORIGIN {question.page_url}: {_origin} chars={len(research)}")
+            try:
+                _pr24_qid = getattr(question, "id_of_question", None) or getattr(question, "id_of_post", None)
+                self._research_origins[_pr24_qid] = _origin
+            except Exception:
+                pass
             logger.info(f"Found Research for URL {question.page_url}:\n{research}")
             return research
 
@@ -331,7 +354,20 @@ class FallTemplateBot2026(ForecastBot):
     # PR-17 (2026-10-17): monotone-cubic smoothing of aggregated percentile
     # curves (numeric+date). A third of our served volume rides this path.
     _PCHIP_SMOOTH = True  # OPERATOR-TUNABLE: False -> coarse list passes through
-    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2-gsh-bra-pchip-tmem-rv2"  # PR-19: roster v2 (v4.1-flash seat + haiku-5.5 seat + de-Google lane)
+    # PR-24 (2026-10-22): degraded-research guard + binary soft caps + Platt hook.
+    # Autopsy of the Oct-17/18 scored batch (official avg peer -6.85 over 26):
+    # 72% of negative mass from the worst 5, all fast news binaries caught in or
+    # around the AskNews dry window. Expert playbook: never improvise news-blind
+    # (fail-closed or crowd-anchor), truncate the log-score tail with caps.
+    _DEGRADED_GUARD = True       # OPERATOR-TUNABLE: master switch
+    _DEGRADED_MODE = "clamp"     # OPERATOR-TUNABLE: "clamp" (crowd-anchor) | "skip" (fail-closed)
+    _DEGRADED_CP_W = 0.85        # OPERATOR-TUNABLE: crowd weight when fully blind
+    _BINARY_SOFT_CAPS = (0.05, 0.95)      # OPERATOR-TUNABLE: always-on band; None disables
+    _BINARY_DEGRADED_CAPS = (0.10, 0.90)  # OPERATOR-TUNABLE: tighter band when blind; None disables
+    _PLATT_AB = None             # (a, b) logit-linear recalibration; set only after >=30 resolutions (PR-20 gate)
+    _LANE = "unknown"            # set from __main__ per run mode; ledger telemetry
+    _research_origins = {}       # qid -> "primary" | "secondary-fallback" | "none"
+    _CONFIG_ERA = "fall2026-r2-sp1-hi-low-tok24k-rb2-gsh-bra-pchip-tmem-rv2-dg1"  # PR-24: degraded-guard/caps/platt-hook era
     _MEMBERS_DUMP_PATH = "assay/ensemble_members.jsonl"
 
     # PR-15 (2026-10-16): gamma shadow telemetry for the B3 A/B readout.
@@ -507,6 +543,40 @@ class FallTemplateBot2026(ForecastBot):
             decimal_pred = 1.0 / (1.0 + _pr12_math.exp(-self._EXTREMIZE_GAMMA * _pr12_math.log(_pr12_c / (1.0 - _pr12_c))))
             decimal_pred = min(max(decimal_pred, self._EXTREMITY_CAPS[0]), self._EXTREMITY_CAPS[1])
             logger.info(f"EXTREMIZE {question.page_url}: gamma={self._EXTREMIZE_GAMMA} -> {decimal_pred:.3f}")
+        # PR-24 (2026-10-22): degraded guard + Platt hook + soft caps.
+        # Research-blind binaries get crowd-anchored (or skipped); every binary
+        # finishes inside soft caps — log-score tails cost more than they earn.
+        _pr24_origin = self._research_origins.get(
+            getattr(question, "id_of_question", None) or getattr(question, "id_of_post", None),
+            "unknown")
+        if self._DEGRADED_GUARD and _pr24_origin == "none":
+            if self._DEGRADED_MODE == "skip":
+                raise RuntimeError(
+                    f"DEGRADED-SKIP {question.page_url}: research empty from all sources; fail-closed")
+            _pr24_cp = getattr(question, "community_prediction_at_access_time", None)
+            if _pr24_cp is not None:
+                decimal_pred = ((1.0 - self._DEGRADED_CP_W) * decimal_pred
+                                + self._DEGRADED_CP_W * float(_pr24_cp))
+                logger.warning(
+                    f"DEGRADED-CLAMP {question.page_url}: no research; "
+                    f"crowd-anchored w={self._DEGRADED_CP_W} -> {decimal_pred:.3f}")
+            else:
+                logger.warning(
+                    f"DEGRADED-CLAMP {question.page_url}: no research and no crowd anchor; soft caps only")
+        if self._PLATT_AB is not None:
+            import math as _pr24_m
+            _pr24_a, _pr24_b = self._PLATT_AB
+            _pr24_pc = min(max(decimal_pred, 1e-6), 1.0 - 1e-6)
+            decimal_pred = 1.0 / (1.0 + _pr24_m.exp(-(_pr24_a * _pr24_m.log(_pr24_pc / (1.0 - _pr24_pc)) + _pr24_b)))
+            logger.info(f"PLATT {question.page_url}: a={_pr24_a} b={_pr24_b} -> {decimal_pred:.3f}")
+        _pr24_caps = self._BINARY_SOFT_CAPS
+        if _pr24_origin == "none" and self._BINARY_DEGRADED_CAPS:
+            _pr24_caps = self._BINARY_DEGRADED_CAPS
+        if _pr24_caps:
+            _pr24_pre = decimal_pred
+            decimal_pred = min(max(decimal_pred, _pr24_caps[0]), _pr24_caps[1])
+            if decimal_pred != _pr24_pre:
+                logger.info(f"SOFT-CAP {question.page_url}: {_pr24_pre:.3f} -> {decimal_pred:.3f} (origin={_pr24_origin})")
         logger.info(f"Ensemble weighted median for {question.page_url}: "
                     f"{decimal_pred} from {pairs}")
         full_reasoning = ("\n\n---\n\n".join(reasonings)
@@ -526,6 +596,10 @@ class FallTemplateBot2026(ForecastBot):
                 "median": decimal_pred,
                 "shadow_gamma_1_3": round(self._pr15_shadow_extremize(decimal_pred), 4),
                 "shadow_gamma_sqrt3": round(self._pr15_shadow_extremize(decimal_pred, gamma=3.0 ** 0.5), 4),  # PR-16: Neyman-Roughgarden d=sqrt(3) counterfactual
+                "lane": getattr(self, "_LANE", "unknown"),  # PR-24
+                "research_origin": self._research_origins.get(
+                    getattr(question, "id_of_question", None) or getattr(question, "id_of_post", None),
+                    "unknown"),  # PR-24
                 "n_members": len(pairs),
                 "ts": datetime.now(timezone.utc).isoformat(),
             }
@@ -623,6 +697,10 @@ class FallTemplateBot2026(ForecastBot):
                 "post_id": getattr(question, "id_of_post", None),
                 "page_url": getattr(question, "page_url", None),
                 "config_era": self._CONFIG_ERA,
+                "lane": getattr(self, "_LANE", "unknown"),  # PR-24
+                "research_origin": self._research_origins.get(
+                    getattr(question, "id_of_question", None) or getattr(question, "id_of_post", None),
+                    "unknown"),  # PR-24
                 "question_type": qtype,
                 "ts": datetime.now(timezone.utc).isoformat(),
             }
@@ -1311,6 +1389,8 @@ if __name__ == "__main__":
         },
 
     )
+
+    template_bot._LANE = run_mode  # PR-24: lane telemetry on ledger records
 
     # Per-mode tournament URL shown in the summary banner footer. These
     # piggyback on the forecasting_tools SDK constants and need updating

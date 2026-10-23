@@ -228,6 +228,7 @@ def track_record_lane(token, out):
 
     # scored-question lane: resolve post_ids -> question ids -> full data
     post_ids = []
+    res_by_pid = {}
     for r in scatter:
         pid = r.get("post_id")
         try:
@@ -236,6 +237,7 @@ def track_record_lane(token, out):
             continue
         if pid not in post_ids:
             post_ids.append(pid)
+            res_by_pid[pid] = r.get("question_resolution")
     n_new = 0
     for pid in post_ids:
         st, post = fetch(f"{API_BASE}/posts/{pid}/", token, label=f"post#{pid}")
@@ -252,6 +254,13 @@ def track_record_lane(token, out):
             time.sleep(PACE)
             if st2 is not True:
                 break
+            # PR-24: the question endpoint leaves resolution null even when
+            # resolved; fill it from the profile-stats row so downstream
+            # resolved-counts and the analyzer's approximation lane work.
+            rec = out.get(str(qid))
+            _sr = res_by_pid.get(pid)
+            if isinstance(rec, dict) and rec.get("resolution") is None and _sr is not None:
+                rec["resolution"] = _sr
     print(f"{TR_MARKER}: {len(post_ids)} scored posts, {n_new} new questions fetched")
     return {
         "user_id": uid,
@@ -293,14 +302,19 @@ def main():
     track = track_record_lane(token, out)
 
     n_good = sum(1 for v in out.values() if isinstance(v, dict) and "error" not in v)
+    n_err = sum(1 for v in out.values() if isinstance(v, dict) and "error" in v)
+    # PR-24: resolved = status says resolved OR a usable resolution value.
+    # (The question endpoint often leaves resolution null; the track-record
+    # lane back-fills it from profile stats.)
     n_resolved = sum(1 for v in out.values()
                      if isinstance(v, dict) and "error" not in v
-                     and v.get("resolution") not in (None, "", "ambiguous", "annulled"))
+                     and (v.get("status") == "resolved"
+                          or v.get("resolution") not in (None, "", "ambiguous", "annulled")))
     payload = {
         "generated_ts": now_z(),
         "n_ids": len(ids),
         "n_ok": n_good,
-        "n_fail": len(ids) - n_good,
+        "n_fail": n_err,
         "n_resolved": n_resolved,
         "track_record": track,
         "questions": out,
@@ -308,7 +322,7 @@ def main():
     with open(OUT, "w") as f:
         json.dump(payload, f)
     print(f"{MARKER}: wrote {os.path.relpath(OUT)} ok_total={n_good} "
-          f"resolved_total={n_resolved} fail_total={len(ids) - n_good} "
+          f"resolved_total={n_resolved} fail_total={n_err} "
           f"track_record={'yes' if track else 'NO'} bytes={os.path.getsize(OUT)}")
     return 0 if n_good > 0 else 1
 
